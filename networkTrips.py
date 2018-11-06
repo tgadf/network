@@ -1,486 +1,26 @@
 # coding: utf-8
 
-import pandas as pd
-import igraph as ig
 from timeUtils import clock, elapsed, getTimeSuffix, getDateTime, addDays, printDateTime, getFirstLastDay
 from pandasUtils import castDateTime, castInt64, cutDataFrameByDate, convertToDate, isSeries, isDataFrame, getColData
-from sparkUtils import isSparkDataFrame
-try:
-    import pygeohash as geohash
-except:
-    import geohash
 from haversine import haversine
-from geoClustering import geoClusters, geoCluster
+from networkTimeUtils import getDailyVisits, getDwellTimes, getOvernightStays, getHome, getCommonLocation
+from networkTripUtils import getInteger, getTripGeoID, getTripCensusData, getTripHEREData, getTripRoadData
+from networkTripUtils import getTripOSMData, getTripTerminalData, getTripPOIData, getTripPOIID, getTripKey
+from networkTripUtils import getTripHeading, getTripDrivingDistance, getTripGeoDistance, getTripDistanceRatio
+from networkTripUtils import getTripStartTime, getTripEndTime, getTripWeekend, getTripDuration
 
 
-#############################################################################################################################
-# Geohash
-#############################################################################################################################
-def getGeo(x):
-    prec=7
-    try:
-        lat    = x[0]
-        long   = x[1]
-        retval = geohash.encode(lat, long, precision=prec)
-    except:
-        retval = None
-    return retval
 
-
-
-#############################################################################################################################
-# Overnight Stays
-#############################################################################################################################
-def checkStartingLocation(startGeo, prevGeo, gc, debug=False): 
-    if not all([startGeo, prevGeo]):
-        return False
-    
-    if startGeo != prevGeo:
-        comPrevGeo  = gc.getClusterCoM(prevGeo)
-        comStartGeo = gc.getClusterCoM(startGeo)
-        dist        = gc.getDist(comPrevGeo, comStartGeo)
-        if dist > 500:
-            return False
-    
-    return True
-            
-    
-
-def getOvernightStays(trips, gc, debug=False):
-    from pandas import Series
-    overnightStays = {}
-    trips = trips.sort_values(by="Start", ascending=True, inplace=False)
-    trips['start']    = convertToDate(castDateTime(trips['Start']))
-    trips['end']      = convertToDate(castDateTime(trips['End']))
-    trips['startGeo'] = trips["geo0"]
-    trips['endGeo']   = trips["geo1"]
-
-    from collections import Counter
-    overnightStays = Counter()
-    
-    prevGeo = None
-    prevEnd = None
-    for tripno, trip in trips.iterrows():
-        startGeo = trip['startGeo']
-        endGeo   = trip['endGeo']
-            
-        if debug:
-            print("\nTripNo: {0} -----> {1} , {2}, {3}, {4}".format(tripno, startGeo, endGeo, trip['start'], trip['end']))
-
-        if not checkStartingLocation(startGeo, prevGeo, gc, debug):
-            prevGeo = endGeo
-            prevEnd = trip['end']
-            if debug:
-                print("  Last Geo and Start Geo are too far apart or one is not recognized. Will not use this data.")
-            continue
-            
-        dTime = trip['start'] - prevEnd
-        days  = dTime.days
-        if days >= 1:
-            overnightStays[startGeo] += 1
-        if debug:
-            print("  Overnight Stays at {0} is {1} w/ Days = {2}".format(startGeo, dTime, days))
-                    
-        prevGeo = endGeo
-        prevEnd = trip['end']
-
-    retval = {"Global": len(overnightStays)}
-    for geo,cnts in overnightStays.most_common():
-        retval[geo] = cnts
-        
-    return retval
-
-
-
-#############################################################################################################################
-# Dwell Time
-#############################################################################################################################
-def getDwellTimes(trips, gc, debug=False):
-    from pandas import Series
-    dwellTimes = {}
-    trips = trips.sort_values(by="Start", ascending=True, inplace=False)
-    trips['start']    = castDateTime(trips['Start'])
-    trips['end']      = castDateTime(trips['End'])
-    trips['startGeo'] = trips["geo0"]
-    trips['endGeo']   = trips["geo1"]
-
-    dwellData = []
-    
-    prevGeo = None
-    prevEnd = None
-    for tripno, trip in trips.iterrows():
-        startGeo = trip['startGeo']
-        endGeo   = trip['endGeo']
-            
-        if debug:
-            print("\nTripNo: {0} -----> {1} , {2}, {3}, {4}".format(tripno, startGeo, endGeo, trip['start'], trip['end']))
-
-        if not checkStartingLocation(startGeo, prevGeo, gc, debug):
-            prevGeo = endGeo
-            prevEnd = trip['end']
-            if debug:
-                print("  Last Geo and Start Geo are too far apart or one is not recognized. Will not use this data.")
-            continue
-            
-        dTime = trip['start'] - prevEnd
-        hours = dTime.seconds/3600
-        if hours < 24:
-            if dwellTimes.get(startGeo) is None:
-                dwellTimes[startGeo] = []            
-            dwellTimes[startGeo].append(hours)
-            dwellData.append(hours)
-
-            if debug:
-                print("  Dwell Time at {0} is {1} w/ Hours = {2}".format(startGeo, dTime, hours))
-            
-        prevGeo = endGeo
-        prevEnd = trip['end']
-
-    retval = {"Global": Series(dwellData).mean()}
-    sigval = {}
-    for geo in dwellTimes.keys():
-        if len(dwellTimes[geo]) >= 1:
-            dts = Series(dwellTimes[geo])
-            dwellTimes[geo] = [dts.size, dts.mean(), dts.std()]
-            retval[geo]     = dwellTimes[geo][1]
-        else:
-            dwellTimes[geo] = [None, None, None]
-            retval[geo]     = None
-    
-    return retval
-
-
-#############################################################################################################################
-# Get Daily Visits
-#############################################################################################################################
-def getDailyVisits(trips, debug=False):
-    trips['start'] = castDateTime(trips['Start'])
-    trips['end']   = castDateTime(trips['End'])
-    trips['date']  = convertToDate(trips['start'])
-    dmm = trips.groupby('date').agg({'start': min, 'end': max})
-    dfStart = dmm.merge(trips, on=['start'])
-    dfEnd   = dmm.merge(trips, on=['end'])
-    
-    startGeo = dfStart["geo0"]
-    endGeo   = dfEnd["geo1"]
-    from pandas import concat
-    try:
-        visits = concat([startGeo, endGeo], axis=0).reset_index(drop=True).value_counts()
-        visits = dict(visits)
-    except:
-        visits = None
-        raise ValueError("Could not create ordered list of geos for last place/first place")
-
-    retval = visits
-    return retval
-
-
-#############################################################################################################################
-# Guess Home
-#############################################################################################################################
-def getHome(dailyVisits, overnightStays, dwellTimes, debug=False):
-    if debug:
-        print("Deriving Home From Daily Visits, Overnight Stays, and Dwell Times")
-    
-    ## Possible clusters come from overnight stays
-    if debug:
-        print("There are {0} possible home clusters".format(len(overnightStays)))
-    
-    ## Require at least two overnight stays for home
-    possibleOSCls = [k for k,v in overnightStays.items() if v >= 2]
-    if debug:
-        print("There are {0} possible home clusters with at least two overnight stays".format(len(possibleOSCls)))
-        
-    ## Require at least ten daily visits for home
-    possibleDVCls = [k for k,v in dailyVisits.items() if v >= 10]
-    if debug:
-        print("There are {0} possible home clusters with at least ten daily visits".format(len(possibleDVCls)))
-        
-    ## Rank remaining cluster dwell times
-    dts = {}
-    for cl,dt in dwellTimes.items():
-        if cl in possibleOSCls and cl in possibleDVCls:
-            dts[cl] = dt
-            
-    from pandas import Series
-    dts = Series(dts)
-    dts.sort_values(ascending=False, inplace=True)
-    if debug:
-        print("There are {0} possible home clusters with active dwell times".format(dts.count()))
-        
-    possibleHomes  = dts.count()
-    try:
-        homeCl     = dts.index[0]
-    except:
-        homeCl     = None
-        
-    try:
-        nextCl     = dts.index[1]
-        homeRatio  = round(dts[homeCl]/dts[nextCl],1)
-    except:
-        homeRatio  = None
-
-    if debug:
-        print("Selecting {0} as the home cluster with significance {1}, {2} overnight stays, {3} daily visits, and {4} dwell time hours.".format(homeCl, homeRatio, overnightStays[homeCl], dailyVisits[homeCl], round(dwellTimes[homeCl],1)))
-    retval = {"Geo": homeCl, "Vtx": None, "Ratio": homeRatio, "Days": dailyVisits[homeCl], "Possible": possibleHomes}
-    return retval
-
-
-
-
-################################################################################################################
-#
-# Generic Trip Data
-#
-################################################################################################################
-def getInteger(tids):
-    from math import isnan    
-    for i in range(len(tids)):
-        try:
-            tids[i] = float(tids[i])
-            if isnan(tids[i]):
-                tids[i] = 0
-        except:
-            tids[i] = None
-    return tids
-            
-def getTripGeoID(name, trip, debug=False):
-    try:
-        key  = [trip["Geo0{0}ID".format(name)], trip["Geo1{0}ID".format(name)]]
-    except:
-        if debug:
-            print("Could not create trip {0}ID for {1}".format(name))
-        key  = [None,None]
-    return key
-
-
-
-
-################################################################################################################
-#
-# Census Data
-#
-################################################################################################################
-def getTripCensusData(trip):
-    keys=['CBSA', 'CSA', 'County', 'MetDiv', 'Place', 'State', 'Tract', 'ZCTA']
-    retval = {}
-    for key in keys:
-        keyval = "{0}{1}".format("Census", key.title())
-        retval[keyval] = getTripGeoID(keyval, trip)
-    return retval
-
-
-
-################################################################################################################
-#
-# HERE Data
-#
-################################################################################################################
-def getTripHEREData(trip):
-    keys=['Attraction', 'Auto', 'Building', 'College', 'Commercial', 'Cycling', 'Entertainment', 'Fastfood', 'Fuel', 'Grocery', 'Industrial', 'Lodging', 'Medical', 'Municipal', 'Parking', 'Recreation', 'Restaurant', 'School', 'Sport', 'Transit']
-    retval = {}
-    for key in keys:
-        keyval = "{0}{1}".format("HEREPOI", key.title())
-        tids = getTripGeoID(keyval, trip)
-        retval[keyval] = getInteger(tids)
-    return retval
-
-
-
-################################################################################################################
-#
-# Road Data
-#
-################################################################################################################
-def getTripRoadData(trip):
-    from math import isnan
-    keys=['Interstate', 'Usrte', 'Staterte', 'Highway', 'MajorRd']    
-    retval = {}
-    for key in keys:
-        keyval = "{0}{1}".format("ROADS", key)
-        tids = getTripGeoID(keyval, trip)
-        retval[keyval] = getInteger(tids)
-    return retval
-
-
-
-################################################################################################################
-#
-# OSM Data
-#
-################################################################################################################
-def getTripOSMData(trip):
-    from math import isnan
-    keys=['Fuel', 'Parking', 'Bus', 'Ferry', 'Rail', 'Taxi', 'Tram', 'Buddhist', 'Christian', 'Hindu', 'Jewish', 'Muslim', 'Sikh', 'Taoist', 'Attraction', 'Auto', 'Building', 'College', 'Commercial', 'Entertainment', 'Fastfood', 'Grocery', 'Industrial', 'Lodging', 'Medical', 'Municipal', 'Public', 'Recreation', 'Religious', 'Restaurant', 'School', 'Sport']
-    retval = {}
-    for key in keys:
-        keyval = "{0}{1}".format("OSM", key)
-        tids = getTripGeoID(keyval, trip)
-        retval[keyval] = getInteger(tids)
-    return retval
-
-
-
-
-
-################################################################################################################
-#
-# Terminal Data
-#
-################################################################################################################
-def getTripTerminalData(trip):
-    from math import isnan
-    keys=['Airport', 'Amtrak']
-    retval = {}
-    for key in keys:
-        keyval = "{0}{1}".format("Terminals", key)
-        tids = getTripGeoID(keyval, trip)
-        retval[keyval] = getInteger(tids)
-    return retval
-
-
-
-################################################################################################################
-#
-# POI Data
-#
-################################################################################################################
-def getTripPOIData(trip):
-    from math import isnan
-    keys=['POIVisits', 'POIUniqueVisits']
-    keys=['UniqueVisits']
-    retval = {}
-    for key in keys:
-        keyval = "{0}{1}".format("POI", key)
-        tids = getTripGeoID(keyval, trip)
-        retval[keyval] = getInteger(tids)
-    return retval
-
-
-
-
-################################################################################################################
-#
-# Trip Details
-#
-################################################################################################################
-def getTripPOIID(trip):
-    print(trip)
-    #print("POI --> ",trip['geo0'], trip['geo0'][:7])    
-    coms = gc.getClusterCoM(geoID)
-    #print(coms)
-    print("POI --> ",trip['geo0'], trip['geo0'][:7])
-    try:
-        key  = [trip["geo0"][:7],trip["geo1"][:7]]
-    except:
-        x = (trip["lat0"], trip["long0"])
-        g0 = getGeo(x)
-        x = (trip["lat1"], trip["long1"])
-        g1 = getGeo(x)
-        key  = [g0,g1]
-    print(key)
-    return key
-
-
-def getTripKey(trip):
-    try:
-        key  = [trip["geo0"],trip["geo1"]]
-    except:
-        trip['geo0'] = getGeo([trip["lat0"], trip["long0"]], 8)
-        trip['geo1'] = getGeo([trip["lat1"], trip["long1"]], 8)
-        key  = [trip["geo0"],trip["geo1"]]
-        #raise ValueError("Could not create trip key for {0}".format(trip))
-        #key  = [None,None]
-    return key
-
-
-def getTripHeading(trip):
-    try:
-        headings = [trip["heading0"], trip["heading1"]]
-    except:
-        raise ValueError("Could not create trip headings for {0}".format(trip))
-        headings = None
-    return headings
-
-
-def getTripDrivingDistance(trip):
-    try:
-        distance = trip["total_miles"]
-    except:
-        raise ValueError("Could not get trip distance for {0}".format(trip))
-        distance = None
-    return distance
-
-
-def getTripGeoDistance(trip):
-    distance  = haversine((trip["lat0"], trip["long0"]), (trip["lat1"], trip["long1"])) # returns in km
-    return distance
-
-
-def getTripDistanceRatio(drivingDistance, geoDistance):
-    try:
-        ratio = geoDistance/drivingDistance
-    except:
-        ratio = None
-    return ratio
-
-def getTripStartTime(trip):
-    try:
-        startTime = getDateTime(trip['Start'])
-    except:
-        try:
-            startTime = getDateTime(trip['start'])
-        except:
-            raise ValueError("Could not get trip start for {0}".format(trip))
-            startTime = None
-    return startTime
-
-
-def getTripEndTime(trip):
-    try:
-        endTime = getDateTime(trip['End'])
-    except:
-        try:
-            endTime = getDateTime(trip['end'])
-        except:
-            raise ValueError("Could not get trip end for {0}".format(trip))
-            endTime = None
-    return endTime
-
-
-def getTripWeekend(trip):
-    startTime = getTripStartTime(trip)
-    try:
-        isWeekend = int(startTime.isoweekday() >= 6)
-    except:
-        raise ValueError("Could not get weekend info for {0}".format(trip))
-    return isWeekend
-
-
-def getTripDuration(trip):
-    try:
-        startTime = getTripStartTime(trip)
-        endTime = getTripEndTime(trip)
-        duration  = (endTime - startTime).seconds
-    except:
-        try:
-            duration  = trip['Duration']
-        except:
-            raise ValueError("Could not get trip duration for {0}".format(trip))
-            duration = None
-    return duration
-
-
-
-def getTripsFromPandas(df, gc, prec=7, requireGood=True, debug=False, showTrips=False, saveTrips=False, collectMetrics=True):
+def organizeTrips(df, gc, prec=7, requireGood=True, debug=False, showTrips=False, saveTrips=False, collectMetrics=True):
     """
-    getTripsFromPandas():
+    organizeTrips():
     
     Notes: Geohashs are already set for this data. If this is called from network.py then the 'geo' values
             are actually the cluster IDs.
     
     Inputs:
       > df: a pandas dataframe
+      > gc: geocluster class object
       > prec: geohash precision (7 by default)
       > debug (False)
       > showTrips (False): show all trips (noisy)
@@ -512,7 +52,8 @@ def getTripsFromPandas(df, gc, prec=7, requireGood=True, debug=False, showTrips=
     dailyVisits    = getDailyVisits(df, debug=False)
     overnightStays = getOvernightStays(df, gc, debug=False)
     dwellTimes     = getDwellTimes(df, gc, debug=False)
-    homeMetrics    = getHome(dailyVisits, overnightStays, dwellTimes, debug=debug)
+    commonLocation = getCommonLocation(df, debug=False)
+    homeMetrics    = getHome(dailyVisits, overnightStays, dwellTimes, commonLocation, debug=debug)
     
     goodTrips = 0
     failedDuration = 0
@@ -579,11 +120,20 @@ def getTripsFromPandas(df, gc, prec=7, requireGood=True, debug=False, showTrips=
 
         # Track First/Last
         if not all([startDate,endDate]):
-            startDate = startTime.date()
-            endDate   = endTime.date()
+            try:
+                startDate = startTime.date()
+                endDate   = endTime.date()
+            except:
+                startDate = None
+                endDate = None
         else:
-            startDate = min(startDate, startTime.date())
-            endDate   = max(endDate, endTime.date())
+            try:
+                startDate = min(startDate, startTime.date())
+                endDate   = max(endDate, endTime.date())
+            except:
+                startDate = None
+                endDate = None
+                
 
         
         ##
@@ -643,18 +193,27 @@ def getTripsFromPandas(df, gc, prec=7, requireGood=True, debug=False, showTrips=
                 vtxID = geoIDtovtxID[geoID]
             vtxIDs.append(vtxID)
 
-            if vtxMetrics.get(vtxID) is None:
+            if vtxMetrics.get(vtxID) is None:                
                 vtxMetrics[vtxID] = {"DayOfWeek": [], "DrivingDistance": [], "GeoDistanceRatio": [], "N": 0, "First": startTime.date(), "Last": endTime.date()}
                 vtxMetrics[vtxID]["CoM"]            = gc.getClusterCoM(geoID)
-                vtxMetrics[vtxID]["POI"]            = getGeo(vtxMetrics[vtxID]["CoM"])
-                vtxMetrics[vtxID]["Geo"]            = getGeo(vtxMetrics[vtxID]["CoM"])
+                vtxMetrics[vtxID]["Geo"]            = gc.getClusterCellNames(geoID)
                 vtxMetrics[vtxID]["Radius"]         = gc.getClusterRadius(geoID)
                 vtxMetrics[vtxID]["Cells"]          = gc.getClusterCells(geoID)
                 vtxMetrics[vtxID]["Quantiles"]      = gc.getClusterQuantiles(geoID)
-                vtxMetrics[vtxID]["Geohashs"]       = gc.getClusterCellNames(geoID)              
-                vtxMetrics[vtxID]["DwellTime"]      = dwellTimes.get(geoID)
-                vtxMetrics[vtxID]["DailyVisits"]    = dailyVisits.get(geoID)
-                vtxMetrics[vtxID]["OvernightStays"] = overnightStays.get(geoID)
+                vtxMetrics[vtxID]["Geohashs"]       = gc.getClusterCellNames(geoID)
+                try:
+                    vtxMetrics[vtxID]["DwellTime"]      = dwellTimes.get(geoID)
+                except:
+                    vtxMetrics[vtxID]["DwellTime"]      = None
+                try:
+                    vtxMetrics[vtxID]["DailyVisits"]    = dailyVisits.get(geoID)
+                except:
+                    vtxMetrics[vtxID]["DailyVisits"]    = None
+                try:
+                    vtxMetrics[vtxID]["OvernightStays"] = overnightStays.get(geoID)
+                except:
+                    vtxMetrics[vtxID]["OvernightStays"] = None
+                    
                 
             ## Fill running counters
             vtxMetrics[vtxID]["DayOfWeek"].append(isWeekend)
@@ -816,6 +375,8 @@ def getTripsFromPandas(df, gc, prec=7, requireGood=True, debug=False, showTrips=
               "edgeMetrics": edgeMetrics, "vertexMetrics": vtxMetrics, "homeMetrics": homeMetrics}
 
     return retval
+
+
 
 
 def getDeviceDir():
