@@ -252,14 +252,14 @@ def organizeTrips(df, gc, prec=7, requireGood=True, debug=False, showTrips=False
         
         if edgeMetrics.get(edgeID) is None:
             edgeMetrics[edgeID] = {"Duration": [], "First": startTime.date(), "Last": endTime.date(), "DayOfWeek": [], "ITA": [],
-                                   "Distance": [],"DrivingDistance": [],"GeoDistanceRatio": [],
+                                   "GeoDistance": [],"DrivingDistance": [],"GeoDistanceRatio": [],
                                    "Weight": 0, "Geos": [geo0, geo1], "Locations": [vtxMetrics[vtx0]["CoM"], vtxMetrics[vtx1]["CoM"]]}
             
         ## Fill running counters
         edgeMetrics[edgeID]["Duration"].append(duration)
         edgeMetrics[edgeID]["DrivingDistance"].append(drivingDistance)
         edgeMetrics[edgeID]["GeoDistanceRatio"].append(geoDistanceRatio)
-        edgeMetrics[edgeID]["Distance"].append(geoDistance)
+        edgeMetrics[edgeID]["GeoDistance"].append(geoDistance)
         edgeMetrics[edgeID]["DayOfWeek"].append(isWeekend)
         edgeMetrics[edgeID]["ITA"].append(startTime.date())
         edgeMetrics[edgeID]["First"] = min(startTime.date(), edgeMetrics[edgeID]["First"])
@@ -335,10 +335,10 @@ def organizeTrips(df, gc, prec=7, requireGood=True, debug=False, showTrips=False
         dur_std = day.std()
         dur_avg = day.mean()
         edgeMetrics[edgeID]["Duration"] = {"Avg": dur_avg, "Std": dur_std}
-        dist     = Series(edgeMetricData["Distance"])
+        dist     = Series(edgeMetricData["GeoDistance"])
         dist_std = dist.std()
         dist_avg = dist.mean()
-        edgeMetrics[edgeID]["GeoDistance"] = {"Avg": dist_avg, "Std": dist_std}
+        edgeMetrics[edgeID]["GeoDistance"] = {"Avg": dist_avg, "Std": dist_std}        
         dist     = Series(edgeMetricData["DrivingDistance"])
         dist_std = dist.std()
         dist_avg = dist.mean()
