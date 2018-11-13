@@ -1,14 +1,19 @@
 import datetime
 from collections import Counter
+from pandasUtils import getRowData
 
 
 class edgeInfo():
     def __init__(self, g, debug=False):
         self.g = g
-        self.debug        = debug
-        self.edgeDict     = None
-        self.orderedEdges = None
-
+        self.debug          = debug
+        self.edgeDict       = None
+        self.orderedEdges   = None
+        self.edgeAttrGroups = None
+        self.edgeAttrsDF    = None
+        self.edgeFeatures   = {}
+        self.edgeFeaturesDF = None
+    
 
         
     def setEdgeDict(self):
@@ -17,10 +22,18 @@ class edgeInfo():
     def getEdgeDict(self):
         return self.edgeDict
     
+    def getAttrGroups(self):
+        return self.edgeAttrGroups
+    
     def orderEdges(self, metric='Weight'):
         self.setEdgeDict()
         tmp = {(u,v): d['attr_dict'][metric] for (u,v,d) in self.g.edges(data=True)}
         self.orderedEdges = sorted(tmp, key=tmp.get, reverse=True)
+        
+    def getEdgeWeights(self):
+        metric  = "Weight"
+        weights = {(u,v): d[metric] for (u,v,d) in self.g.edges(data=True)}
+        return weights
         
         
     def getEdges(self, ordered=True):
@@ -55,8 +68,41 @@ class edgeInfo():
         return edgeName        
         
         
-    
         
+        
+        
+    def getEdgeData(self, edgeNum, datatype="raw", debug=True):
+        edgeName = self.getEdgeNameByNum(edgeNum)
+        return self.getEdgeDataByName(edgeName, datatype, debug=debug)
+            
+        
+        
+    def getEdgeDataByName(self, edgeName, datatype="raw", debug=True):
+        edgeData = None
+        if datatype == "raw":
+            try:
+                edgeData = self.edgeDict[edgeName]
+            except:
+                if debug:
+                    print("Could not get edge data for edge name {0}".format(edgeName))
+        elif datatype == "attr":
+            try:
+                edgeData = getRowData(self.edgeAttrsDF, rownames=str(edgeName))
+                #edgeData = self.edgeAttrs[edgeName]
+            except:
+                if debug:
+                    print("Could not get edge attr data for edge name {0}".format(edgeName))
+        elif datatype == "feat":
+            edgeData = self.edgeFeatures[edgeName]
+        else:
+            raise ValueError("Datatype {0} is not known".format(datatype))
+        return edgeData
+    
+    
+    
+    ########################################################################################################################
+    # Attributes
+    ########################################################################################################################
     def flattenEdgeAttrs(self):
         self.edgeAttrGroups = {}
         for edgeName, edgeData in self.edgeDict.items():
@@ -114,30 +160,19 @@ class edgeInfo():
         from pandas import DataFrame
         self.edgeAttrsDF = DataFrame(self.edgeAttrs)
         self.edgeAttrsDF.index = [str(x) for x in list(self.edgeDict.keys())]
-        
-        
-        
-    def getEdgeData(self, edgeNum, datatype="raw", debug=True):
-        edgeName = self.getEdgeNameByNum(edgeNum)
-        return self.getEdgeDataByName(edgeName, datatype, debug=debug)
             
         
         
-    def getEdgeDataByName(self, edgeName, datatype="raw", debug=True):
-        edgeData = None
-        if datatype == "raw":
-            try:
-                edgeData = self.edgeDict[edgeName]
-            except:
-                if debug:
-                    print("Could not get edge data for edge name {0}".format(edgeName))
-        elif datatype == "attr":
-            try:
-                edgeData = getRowData(self.edgeAttrsDF, rownames=str(edgeName))
-                #edgeData = self.edgeAttrs[edgeName]
-            except:
-                if debug:
-                    print("Could not get edge attr data for edge name {0}".format(edgeName))
-        else:
-            raise ValueError("Datatype {0} is not known".format(datatype))
-        return edgeData
+    ########################################################################################################################
+    # Features
+    ########################################################################################################################
+    def setEdgeFeature(self, edgeName, key, value):
+        if self.edgeFeatures.get(edgeName) is None:
+            self.edgeFeatures[edgeName] = {}
+        self.edgeFeatures[edgeName][key] = value
+        
+    def getEdgeFeature(self, edgeName, key):
+        return self.edgeFeatures[edgeName][key]
+    
+    def getEdgeFeatures(self, edgeName):
+        return self.edgeFeatures[edgeName]

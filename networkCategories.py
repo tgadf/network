@@ -148,8 +148,16 @@ class categories():
         self.catgetter['DayOfWeek'] = self.getDurationCategory
         self.cats['Distance']       = self.getDistanceCategories(debug)
         self.catgetter['Distance']  = self.getDistanceCategory
+        self.cats['GeoDistanceRatio']       = self.getDistanceRatioCategories(debug)
+        self.catgetter['GeoDistanceRatio']  = self.getDistanceRatioCategory
+        self.cats['DrivingDistance']       = self.getDistanceCategories(debug)
+        self.catgetter['DrivingDistance']  = self.getDistanceCategory
         self.cats['Interval']       = self.getIntervalCategories(debug)
         self.catgetter['Interval']  = self.getIntervalCategory
+        self.cats['OvernightStays']       = self.getOvernightStaysCategories(debug)
+        self.catgetter['OvernightStays']  = self.getOvernightStaysCategory
+        self.cats['DailyVisits']       = self.getDailyVisitsCategories(debug)
+        self.catgetter['DailyVisits']  = self.getDailyVisitsCategory
         self.cats['ITA']            = self.getITACategories(debug)
         self.catgetter['ITA']       = self.getITACategory
         
@@ -166,7 +174,10 @@ class categories():
         self.featureMap['Duration']         = self.getDurationFeatures
         self.featureMap['Distance']         = self.getDistanceFeatures
         self.featureMap['DrivingDistance']  = self.getDistanceFeatures
+        self.featureMap['GeoDistanceRatio']  = self.getDistanceRatioFeatures
         self.featureMap['Interval']         = self.getIntervalFeatures
+        self.featureMap['OvernightStays']         = self.getOvernightStaysFeatures
+        self.featureMap['DailyVisits']         = self.getDailyVisitsFeatures
         self.featureMap['DayOfWeek']        = self.getDayOfWeekFeatures
         self.featureMap['ITA']              = self.getITAFeatures
         #self.featureMap['Weight']           = self.getWeightFeatures
@@ -2002,6 +2013,68 @@ class categories():
 
 
 
+    ##########################################################################################
+    #
+    # DistanceRatio Data Information
+    #
+    ##########################################################################################
+    def getDistanceRatioCategories(self, debug=False):
+        return ["VeryHigh", "High", "Mid", "Low", "VeryLow"]
+    def getDistanceRatioCategory(self, distanceRatio, debug=False):
+        try:
+            avg = distanceRatio['Avg']
+            std = distanceRatio['Std']
+        except:
+            print("Could not get distance information from {0}".format(distance))
+
+        category     = None
+        significance = None
+        if avg >= 2:
+            category="VeryHigh"
+        elif avg >= 4.0/3.0:
+            category="High"
+        elif avg >= 2.0/3.0:
+            category="Mid"
+        elif avg >= 0.5:
+            category="Low"
+        else:
+            category="VeryLow"
+
+        if std > 0:
+            sig = avg/std
+            if sig < 1:
+                significance = "Low"
+            elif sig > 3:
+                significance = "High"
+            else:
+                significance = "Mid"
+        else:
+            significance = "High"
+
+        return category, significance
+
+    def getDistanceRatioFeatures(self, distanceRatioData, debug):
+        distanceRatioFeatures = {}
+        if distanceRatioData is None:
+            distanceRatioCategory   = None
+            distanceRatioSignifance = None
+
+        if isinstance(distanceRatioData, dict):
+            distanceRatioCategory, distanceRatioSignifance = self.getDistanceRatioCategory(distanceRatioData, debug)
+        else:
+            distanceRatioCategory   = None
+            distanceRatioSignifance = None
+
+        distanceRatioFeatures["Name"]         = distanceRatioCategory
+        distanceRatioFeatures["Significance"] = distanceRatioSignifance
+        if debug and False:
+            print("  Found the following distance ratio features:")
+            for k,v in distanceRatioFeatures.items():
+                print("\t",k,"\t",v)
+        return distanceRatioFeatures
+
+
+
 
 
 
@@ -2060,6 +2133,11 @@ class categories():
     def getIntervalCategory(self, interval, debug=False):
         avg = interval
         std = 0
+        if interval is None:
+            category = "Short"
+            significance = "Low"
+            return category, significance
+
 
         category     = None
         significance = None
@@ -2098,6 +2176,120 @@ class categories():
             for k,v in intervalFeatures.items():
                 print("\t",k,"\t",v)
         return intervalFeatures
+
+
+
+
+    ##########################################################################################
+    #
+    # DailyVisits Data Information
+    #
+    ##########################################################################################
+    def getDailyVisitsCategories(self, debug=False):
+        return ["Long", "Mid", "Short"]
+    def getDailyVisitsCategory(self, dailyVisits, debug=False):
+        avg = dailyVisits
+        std = 0
+        if dailyVisits is None:
+            category = "Short"
+            significance = "Low"
+            return category, significance
+
+
+        category     = None
+        significance = None
+        if avg >= 90:
+            category="Long"
+        elif avg >= 30:
+            category="Mid"
+        else:
+            category="Short"
+
+        if std > 0:
+            sig = avg/std
+            if sig < 1:
+                significance = "Low"
+            elif sig > 3:
+                significance = "High"
+            else:
+                significance = "Mid"
+        else:
+            significance = "High"
+
+        return category, significance
+
+    def getDailyVisitsFeatures(self, dailyVisitsData, debug):
+        dailyVisitsFeatures = {}
+        if dailyVisitsData is None:
+            dailyVisitsCategory   = None
+            dailyVisitsSignifance = None
+        else:
+            dailyVisitsCategory, dailyVisitsSignifance = self.getDailyVisitsCategory(dailyVisitsData, debug)
+
+        dailyVisitsFeatures["Name"]         = dailyVisitsCategory
+        dailyVisitsFeatures["Significance"] = dailyVisitsSignifance
+        if debug and False:
+            print("  Found the following daily visits features:")
+            for k,v in dailyVisitsFeatures.items():
+                print("\t",k,"\t",v)
+        return dailyVisitsFeatures
+
+
+
+
+    ##########################################################################################
+    #
+    # Overnight Stays Data Information
+    #
+    ##########################################################################################
+    def getOvernightStaysCategories(self, debug=False):
+        return ["Long", "Mid", "Short"]
+    def getOvernightStaysCategory(self, overnightStays, debug=False):
+        avg = overnightStays
+        std = 0
+        if dailyVisits is None:
+            category = "Short"
+            significance = "Low"
+            return category, significance
+
+
+        category     = None
+        significance = None
+        if avg >= 90:
+            category="Long"
+        elif avg >= 30:
+            category="Mid"
+        else:
+            category="Short"
+
+        if std > 0:
+            sig = avg/std
+            if sig < 1:
+                significance = "Low"
+            elif sig > 3:
+                significance = "High"
+            else:
+                significance = "Mid"
+        else:
+            significance = "High"
+
+        return category, significance
+
+    def getOvernightStaysFeatures(self, overnightStaysData, debug):
+        overnightStaysFeatures = {}
+        if overnightStaysData is None:
+            overnightStaysCategory   = None
+            overnightStaysSignifance = None
+        else:
+            overnightStaysCategory, overnightStaysSignifance = self.getOvernightStaysCategory(overnightStaysData, debug)
+
+        overnightStaysFeatures["Name"]         = overnightStaysCategory
+        overnightStaysFeatures["Significance"] = overnightStaysSignifance
+        if debug and False:
+            print("  Found the following overnight stays features:")
+            for k,v in overnightStaysFeatures.items():
+                print("\t",k,"\t",v)
+        return overnightStaysFeatures
 
 
 

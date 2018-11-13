@@ -1,21 +1,29 @@
 import datetime
 from collections import Counter
+from pandasUtils import getRowData
 
 
 class vertexInfo():
     def __init__(self, g, debug=False):
         self.g = g
-        self.debug           = debug
-        self.vertexDict      = None
-        self.orderedVertices = None
+        self.debug            = debug
+        self.vertexDict       = None
+        self.orderedVertices  = None
+        self.vertexAttrGroups = None
+        self.vertexAttrsDF    = None
+        self.vertexFeatures   = {}
+        self.vertexFeaturesDF = None
 
-
-        
+        self.diagnosticAttrs = ['CoM', 'Radius', 'Cells', 'Quantiles', 'Geohashs', 'First', 'Last', 'Geo']
+                              
     def setNodeDict(self):
         self.nodeDict = {u: d for (u,d) in self.g.nodes(data=True)}
         
     def getNodeDict(self):
         return self.nodeDict
+    
+    def getAttrGroups(self):
+        return self.vertexAttrGroups
         
     def orderVertices(self, metric='Centrality'):
         self.setNodeDict()
@@ -48,6 +56,8 @@ class vertexInfo():
         return vertexNum
         
     def getVertexNameByNum(self, vertexNum, debug=True):
+        if not isinstance(vertexNum, int):
+            raise ValueError("Vertex number {0} must be an integer".format(vertexNum))
         vertexList = self.getVertices()
         if vertexNum >= len(vertexList):
             if debug:
@@ -76,17 +86,26 @@ class vertexInfo():
                 if debug:
                     print("Could not get vertex data for vertex name {0}".format(vertexName))
         elif datatype == "attr":
+            if self.vertexAttrsDF is None:
+                raise ValueError("Cannot access vertex attrs DF because it's None!")
             try:
                 vertexData = getRowData(self.vertexAttrsDF, rownames=str(vertexName))
                 #vertexData = self.vertexAttrs[vertexName]
             except:
                 if debug:
-                    print("Could not get vertex attr data for vertex name {0}".format(vertexName))
+                    print("Could not get vertex attr data for vertex name {0}. Avail: {1}".format(vertexName, self.vertexAttrsDF.index))
+        elif datatype == "feat":
+            vertexData = self.vertexFeatures[vertexName]
         else:
             raise ValueError("Datatype {0} is not known".format(datatype))
         return vertexData
         
         
+            
+        
+    ########################################################################################################################
+    # Attributes
+    ########################################################################################################################
     def flattenVertexAttrs(self):
         self.vertexAttrGroups = {}        
         for vertexName in list(self.nodeDict.keys()):
@@ -102,7 +121,10 @@ class vertexInfo():
                     else:
                         self.vertexAttrGroups[attrName] = "General"
                 else:
-                    self.vertexAttrGroups[attrName] = "Diagnostic"
+                    if attrName in self.diagnosticAttrs:
+                        self.vertexAttrGroups[attrName] = "Diagnostic"
+                    else:
+                        self.vertexAttrGroups[attrName] = "General"
             self.nodeDict[vertexName] = vertexData
             
         
@@ -120,8 +142,8 @@ class vertexInfo():
                 if self.vertexAttrs.get(attrName) is None:
                     self.vertexAttrs[attrName] = []
                 if attrData is None:
-                    continue
-                if isinstance(attrData, (int, float, str)):
+                    self.vertexAttrs[attrName].append(attrData)
+                elif isinstance(attrData, (int, float, str)):
                     self.vertexAttrs[attrName].append(attrData)
                 elif isinstance(attrData, (datetime.date,list,tuple)):
                     self.vertexAttrs[attrName].append(attrData)
@@ -143,4 +165,18 @@ class vertexInfo():
         from pandas import DataFrame
         self.vertexAttrsDF = DataFrame(self.vertexAttrs)
         self.vertexAttrsDF.index = list(self.nodeDict.keys())
+            
         
+    ########################################################################################################################
+    # Features
+    ########################################################################################################################
+    def setVertexFeature(self, vertexName, key, value):
+        if self.vertexFeatures.get(vertexName) is None:
+            self.vertexFeatures[vertexName] = {}
+        self.vertexFeatures[vertexName][key] = value
+        
+    def getVertexFeature(self, vertexName, key):
+        return self.vertexFeatures[vertexName][key]
+    
+    def getVertexFeatures(self, vertexName):
+        return self.vertexFeatures[vertexName]

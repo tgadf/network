@@ -196,7 +196,7 @@ def organizeTrips(df, gc, prec=7, requireGood=True, debug=False, showTrips=False
             if vtxMetrics.get(vtxID) is None:                
                 vtxMetrics[vtxID] = {"DayOfWeek": [], "DrivingDistance": [], "GeoDistanceRatio": [], "N": 0, "First": startTime.date(), "Last": endTime.date()}
                 vtxMetrics[vtxID]["CoM"]            = gc.getClusterCoM(geoID)
-                vtxMetrics[vtxID]["Geo"]            = gc.getClusterCellNames(geoID)
+                vtxMetrics[vtxID]["Geo"]            = clID
                 vtxMetrics[vtxID]["Radius"]         = gc.getClusterRadius(geoID)
                 vtxMetrics[vtxID]["Cells"]          = gc.getClusterCells(geoID)
                 vtxMetrics[vtxID]["Quantiles"]      = gc.getClusterQuantiles(geoID)
