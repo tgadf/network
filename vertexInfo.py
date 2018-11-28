@@ -1,4 +1,5 @@
 import datetime
+from numpy import int64, float64
 from collections import Counter
 from pandasUtils import getRowData
 
@@ -143,7 +144,7 @@ class vertexInfo():
                     self.vertexAttrs[attrName] = []
                 if attrData is None:
                     self.vertexAttrs[attrName].append(attrData)
-                elif isinstance(attrData, (int, float, str)):
+                elif isinstance(attrData, (int, float, str, int64, float64)):
                     self.vertexAttrs[attrName].append(attrData)
                 elif isinstance(attrData, (datetime.date,list,tuple)):
                     self.vertexAttrs[attrName].append(attrData)
@@ -156,7 +157,7 @@ class vertexInfo():
                         else:
                             raise ValueError("Cannot collect vertex attrs dictionary for {0} because it has no 'Avg' key: {1}, {2}".format(attrName, attrData, type(attrData)))
                 else:
-                    raise ValueError("Attr data for {0} is type {1} and not allowed.".format(attrName, type(attrData)))
+                    raise ValueError("Attr data {0} for {1} is type {2} and not allowed.".format(attrData, attrName, type(attrData)))
  
         for attrName in list(self.vertexAttrs.keys()):
             if len(self.vertexAttrs[attrName]) == 0:
