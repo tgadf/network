@@ -7,7 +7,7 @@ from networkTimeUtils import getDailyVisits, getDwellTimes, getOvernightStays, g
 from networkTripUtils import getInteger, getTripGeoID, getTripCensusData, getTripHEREData, getTripRoadData
 from networkTripUtils import getTripOSMData, getTripTerminalData, getTripPOIData, getTripPOIID, getTripKey
 from networkTripUtils import getTripHeading, getTripDrivingDistance, getTripGeoDistance, getTripDistanceRatio
-from networkTripUtils import getTripStartTime, getTripEndTime, getTripWeekend, getTripDuration
+from networkTripUtils import getTripStartTime, getTripEndTime, getTripWeekend, getTripDuration, getTripRailData
 
 
 
@@ -160,24 +160,34 @@ def organizeTrips(df, gc, prec=7, requireGood=True, debug=False, showTrips=False
         ###################################################################################################################
         extData = {}
         # Get Census information
-        extData['Census']   = getTripCensusData(trip)
+        extData['Census']    = getTripCensusData(trip)
         
         # Get HERE information
-        extData['HEREPOI']  = getTripHEREData(trip)
+        extData['HEREPOI']   = getTripHEREData(trip)
         
         # Get HERE information
-        extData['OSM']      = getTripOSMData(trip)
+        extData['OSM']       = getTripOSMData(trip)
         
         # Get Road information
-        extData['Road']     = getTripRoadData(trip)
+        extData['Roads']     = getTripRoadData(trip)
+        
+        # Get Rail information
+        extData['Rail']     = getTripRailData(trip)
         
         # Get Terminal information
-        extData['Terminal'] = getTripTerminalData(trip)
+        extData['Terminals'] = getTripTerminalData(trip)
         
         # Get Road information
-        extData['POI']      = getTripPOIData(trip)
-
-       
+        extData['POI']       = getTripPOIData(trip)
+ 
+        if False:
+            for k,v in extData.items():
+                print("")
+                print(k)
+                print(v)
+            print("")
+            print(list(trip.index))
+            1/0
     
         ###################################################################################################################
         ## vertex metrics

@@ -9,7 +9,9 @@ class networkAlgos():
         self.g = g
     
     
-    def compute(self, g=None):
+    def compute(self, g=None, level=3, debug=False):
+        if debug:
+            print("Computing Network Algorithms")
         if not any([g, self.g]):
             print("There is no network to compute features for each algorithm")
             return
@@ -19,14 +21,18 @@ class networkAlgos():
 
         self.nodeList = list(g.nodes())
         self.edgeList = list(g.edges())
-        results = self.runNetworkAlgorithms(g)
+        results = self.runNetworkAlgorithms(g, level=level, debug=debug)
         return results
     
 
-    def runAlgos(self, algosToRun, g):
+    def runAlgos(self, algosToRun, g, debug=False, verydebug=False):
+        if debug:
+            print("Running network algorithms")
         results = {}
         for algo in algosToRun:
             name = algo.__name__
+            if verydebug:
+                print("  Running {0} algorithm".format(name))
 
             try:
                 results[name] = algo(g)
@@ -384,7 +390,7 @@ class networkAlgos():
         algosToRun.append(linalg.spectral_ordering)
         return algosToRun
 
-    def runNetworkAlgorithms(self, g):
+    def runNetworkAlgorithms(self, g, level=3, debug=False):
         algosToRun  = []
         algosToRun += self.getHeuristics()
         algosToRun += self.getAssortativity()
@@ -395,12 +401,15 @@ class networkAlgos():
         algosToRun += self.getChordal()
         algosToRun += self.getCliques()
         algosToRun += self.getClustering()
-        algosToRun += self.getCommunicability()
-        algosToRun += self.getCommunities()
+        if level >= 3:
+            algosToRun += self.getCommunicability()
+        if level >= 2:
+            algosToRun += self.getCommunities()
         algosToRun += self.getConnected()
         algosToRun += self.getCore()
         algosToRun += self.getCover()
-        algosToRun += self.getCycles()
+        if level >= 3:
+            algosToRun += self.getCycles()
         algosToRun += self.getDAG()
         algosToRun += self.getDistance()
         algosToRun += self.getIntersection()
@@ -419,10 +428,12 @@ class networkAlgos():
         algosToRun += self.getRichClub()
         algosToRun += self.getShortestPath()
         algosToRun += self.getSMetric()
-        algosToRun += self.getStructural()
+        if level >=2:
+            algosToRun += self.getStructural()
         algosToRun += self.getTree()
         algosToRun += self.getTriadic()
-        algosToRun += self.getVitality()
+        if level >=3:
+            algosToRun += self.getVitality()
         algosToRun += self.getWiener()
         algosToRun += self.getSpectrum()
 
@@ -434,7 +445,7 @@ class networkAlgos():
 
 
         results = {"Net": {}, "Nodes": {}, "Edges": {}}
-        retval = self.runAlgos(algosToRun, g)
+        retval = self.runAlgos(algosToRun, g, debug=debug)
         for k in list(retval.keys()):
             v = retval[k]
             if isinstance(v, float):
@@ -527,10 +538,14 @@ class networkAlgos():
                 results["Net"][k] = retval[k]
 
 
+        if debug:
+            print("Creating Algorithm Results DataFrame for Vertices")
         df = DataFrame(results['Nodes'])
         df.index = list(self.nodeList)
         results['Nodes'] = df
 
+        if debug:
+            print("Creating Algorithm Results DataFrame for Edges")
         df = DataFrame(results['Edges'])
         df.reset_index(drop=True)
         df.index = list(self.edgeList)

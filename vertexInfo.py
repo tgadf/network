@@ -1,5 +1,6 @@
 import datetime
 from numpy import int64, float64
+from pandas import DataFrame
 from collections import Counter
 from pandasUtils import getRowData
 
@@ -26,7 +27,9 @@ class vertexInfo():
     def getAttrGroups(self):
         return self.vertexAttrGroups
         
-    def orderVertices(self, metric='Centrality'):
+    def orderVertices(self, metric='Centrality', debug=False):
+        if debug:
+            print("Ordering Vertices by {0}".format(metric))
         self.setNodeDict()
         if metric == 'Centrality':
             from networkx.algorithms import degree_centrality
@@ -107,7 +110,9 @@ class vertexInfo():
     ########################################################################################################################
     # Attributes
     ########################################################################################################################
-    def flattenVertexAttrs(self):
+    def flattenVertexAttrs(self, debug=False):
+        if debug:
+            print("Flattening Vertex Attributes")
         self.vertexAttrGroups = {}        
         for vertexName in list(self.nodeDict.keys()):
             vertexData = self.nodeDict[vertexName]
@@ -129,10 +134,14 @@ class vertexInfo():
             self.nodeDict[vertexName] = vertexData
             
         
-    def collectVertexAttrs(self):
+    def collectVertexAttrs(self, debug=False, verydebug=False):
+        if debug:
+            print("Collecting Vertex Attributes")
         self.vertexAttrNames = None
         self.vertexAttrs = {}
         for vertexName, vertexData in self.nodeDict.items():
+            if debug and verydebug:
+                print("  Vertex[{0}] with {1} attributes".format(vertexName, len(vertexData)))
             if not isinstance(vertexData, dict):
                 raise ValueError("Cannot collect vertex attrs because the data is not a dictionary")
             attrs = vertexData
@@ -163,7 +172,8 @@ class vertexInfo():
             if len(self.vertexAttrs[attrName]) == 0:
                 del self.vertexAttrs[attrName]
                 
-        from pandas import DataFrame
+        if debug:
+            print("Creating Vertex Attributes DataFrame")
         self.vertexAttrsDF = DataFrame(self.vertexAttrs)
         self.vertexAttrsDF.index = list(self.nodeDict.keys())
             

@@ -2247,7 +2247,7 @@ class categories():
     def getOvernightStaysCategory(self, overnightStays, debug=False):
         avg = overnightStays
         std = 0
-        if dailyVisits is None:
+        if overnightStays is None:
             category = "Short"
             significance = "Low"
             return category, significance

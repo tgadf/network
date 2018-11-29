@@ -20,7 +20,7 @@ def getInteger(tids):
             
 def getTripGeoID(name, trip, debug=False):
     try:
-        key  = [trip["Geo0{0}ID".format(name)], trip["Geo1{0}ID".format(name)]]
+        key  = [trip["Geo0{0}".format(name)], trip["Geo1{0}".format(name)]]
     except:
         if debug:
             print("Could not create trip {0}ID for {1}".format(name))
@@ -36,11 +36,29 @@ def getTripGeoID(name, trip, debug=False):
 #
 ################################################################################################################
 def getTripCensusData(trip):
-    keys=['CBSA', 'CSA', 'County', 'MetDiv', 'Place', 'State', 'Tract', 'ZCTA']
+    keys=['CBSA', 'CSA', 'MetDiv', 'Place', 'CouSub']
     retval = {}
     for key in keys:
-        keyval = "{0}{1}".format("Census", key.title())
+        keyval = "{0}{1}".format("CENSUS", key.title())
         retval[keyval] = getTripGeoID(keyval, trip)
+        
+    ## Add County and State
+    key = 'County'
+    keyval = "{0}{1}".format("CENSUS", key.title())
+    cousub = retval['CENSUSCousub']
+    try:
+        retval[keyval] = [int(str(x)[:5]) for x in cousub]
+    except:
+        retval[keyval] = [0, 0]
+        
+    key = 'State'
+    keyval = "{0}{1}".format("CENSUS", key.title())
+    cousub = retval['CENSUSCousub']
+    try:
+        retval[keyval] = [int(str(x)[:2]) for x in cousub]
+    except:
+        retval[keyval] = [0, 0]
+    
     return retval
 
 
@@ -54,7 +72,24 @@ def getTripHEREData(trip):
     keys=['Attraction', 'Auto', 'Building', 'College', 'Commercial', 'Cycling', 'Entertainment', 'Fastfood', 'Fuel', 'Grocery', 'Industrial', 'Lodging', 'Medical', 'Municipal', 'Parking', 'Recreation', 'Restaurant', 'School', 'Sport', 'Transit']
     retval = {}
     for key in keys:
-        keyval = "{0}{1}".format("HEREPOI", key.title())
+        keyval = "{0}{1}".format("POIHERE", key.title())
+        tids = getTripGeoID(keyval, trip)
+        retval[keyval] = getInteger(tids)
+    return retval
+
+
+
+################################################################################################################
+#
+# Road Data
+#
+################################################################################################################
+def getTripRailData(trip):
+    from math import isnan
+    keys=['Rail']
+    retval = {}
+    for key in keys:
+        keyval = "{0}{1}".format("RAIL", key)
         tids = getTripGeoID(keyval, trip)
         retval[keyval] = getInteger(tids)
     return retval
@@ -68,7 +103,7 @@ def getTripHEREData(trip):
 ################################################################################################################
 def getTripRoadData(trip):
     from math import isnan
-    keys=['Interstate', 'Usrte', 'Staterte', 'Highway', 'MajorRd']    
+    keys=['Interstate', 'Usrte', 'Staterte', 'Highway', 'MajorRd', 'Road']
     retval = {}
     for key in keys:
         keyval = "{0}{1}".format("ROADS", key)
@@ -85,7 +120,8 @@ def getTripRoadData(trip):
 ################################################################################################################
 def getTripOSMData(trip):
     from math import isnan
-    keys=['Fuel', 'Parking', 'Bus', 'Ferry', 'Rail', 'Taxi', 'Tram', 'Buddhist', 'Christian', 'Hindu', 'Jewish', 'Muslim', 'Sikh', 'Taoist', 'Attraction', 'Auto', 'Building', 'College', 'Commercial', 'Entertainment', 'Fastfood', 'Grocery', 'Industrial', 'Lodging', 'Medical', 'Municipal', 'Public', 'Recreation', 'Religious', 'Restaurant', 'School', 'Sport']
+    
+    keys=['Beach', 'CaveEntrance', 'Cliff', 'Glacier', 'Peak', 'Spring', 'Tree', 'Volcano', '4101', '4111', '4113', '4112', '4121', '4141', '4132', '4103', 'City', 'County', 'Hamlet', 'Island', 'Locality', 'Region', 'Suburb', 'Town', 'Village', '1003', '1004', '1050', '1001', '1002', '1041', '1010', 'FarmPlace', '1020', '1030', 'NationalCapital', 'Allotments', 'Cemetery', 'Commercial', 'Farm', 'Forest', 'Grass', 'Heath', 'Industrial', 'Meadow', 'Military', 'NatureReserve', 'Orchard', 'Park', 'Quarry', 'RecreationGround', 'Residential', 'Retail', 'Scrub', 'Vineyard', 'Canal', 'Dock', 'Drain', 'GlacierWater', 'Reservoir', 'River', 'Stream', 'Water', 'Wetland', 'Fuel', 'Parking', 'Buddhist', 'Christian', 'Hindu', 'Jewish', 'Muslim', 'Sikh', 'Taoist', 'Bus', 'Ferry', 'Rail', 'Taxi', 'Tram', 'Attraction', 'Auto', 'Building', 'College', 'Business', 'Entertainment', 'Fastfood', 'Grocery', 'Manufacturing', 'Lodging', 'Medical', 'Municipal', 'Public', 'Recreation', 'Religious', 'Restaurant', 'School', 'Sport']
     retval = {}
     for key in keys:
         keyval = "{0}{1}".format("OSM", key)
@@ -107,7 +143,7 @@ def getTripTerminalData(trip):
     keys=['Airport', 'Amtrak']
     retval = {}
     for key in keys:
-        keyval = "{0}{1}".format("Terminals", key)
+        keyval = "{0}{1}".format("TERMINALS", key)
         tids = getTripGeoID(keyval, trip)
         retval[keyval] = getInteger(tids)
     return retval
@@ -125,7 +161,7 @@ def getTripPOIData(trip):
     keys=['UniqueVisits']
     retval = {}
     for key in keys:
-        keyval = "{0}{1}".format("POI", key)
+        keyval = "{0}{1}".format("POIASDW", key)
         tids = getTripGeoID(keyval, trip)
         retval[keyval] = getInteger(tids)
     return retval

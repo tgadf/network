@@ -25,11 +25,13 @@ class edgeInfo():
     def getAttrGroups(self):
         return self.edgeAttrGroups
     
-    def orderEdges(self, metric='Weight'):
+    def orderEdges(self, metric='Weight', debug=False):
+        if debug:
+            print("Ordering Edges by {0}".format(metric))
         self.setEdgeDict()
         tmp = {(u,v): d['attr_dict'][metric] for (u,v,d) in self.g.edges(data=True)}
         self.orderedEdges = sorted(tmp, key=tmp.get, reverse=True)
-        
+
     def getEdgeWeights(self):
         metric  = "Weight"
         weights = {(u,v): d[metric] for (u,v,d) in self.g.edges(data=True)}
@@ -103,7 +105,9 @@ class edgeInfo():
     ########################################################################################################################
     # Attributes
     ########################################################################################################################
-    def flattenEdgeAttrs(self):
+    def flattenEdgeAttrs(self, debug=False):
+        if debug:
+            print("Collecting Edge Attributes")
         self.edgeAttrGroups = {}
         for edgeName, edgeData in self.edgeDict.items():
             for attrName in list(edgeData.keys()):
@@ -120,7 +124,9 @@ class edgeInfo():
                     self.edgeAttrGroups[attrName] = "Diagnostic"
                     
     
-    def collectEdgeAttrs(self):
+    def collectEdgeAttrs(self, debug=False):
+        if debug:
+            print("Collecting Edge Attributes")
         self.edgeAttrNames = None
         self.edgeAttrs = {}
         for edgeName, edgeData in self.edgeDict.items():
