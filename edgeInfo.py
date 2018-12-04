@@ -1,6 +1,7 @@
 import datetime
 from collections import Counter
 from pandasUtils import getRowData
+from pandas import DataFrame
 
 
 class edgeInfo():
@@ -88,8 +89,10 @@ class edgeInfo():
                 if debug:
                     print("Could not get edge data for edge name {0}".format(edgeName))
         elif datatype == "attr":
+            if isinstance(edgeName, tuple):
+                edgeName = [edgeName]
             try:
-                edgeData = getRowData(self.edgeAttrsDF, rownames=str(edgeName))
+                edgeData = getRowData(self.edgeAttrsDF, rownames=edgeName)
                 #edgeData = self.edgeAttrs[edgeName]
             except:
                 if debug:
@@ -162,23 +165,41 @@ class edgeInfo():
         for attrName in list(self.edgeAttrs.keys()):
             if len(self.edgeAttrs[attrName]) == 0:
                 del self.edgeAttrs[attrName]
-                
-        from pandas import DataFrame
+            
+        
+    ########################################################################################################################
+    # Clean and Aggregate Attributes
+    ########################################################################################################################
+    def createEdgeAttrsDataFrame(self, debug=False):
+        if debug:
+            print("Cleaning Edge Attribute Names")
         self.edgeAttrsDF = DataFrame(self.edgeAttrs)
-        self.edgeAttrsDF.index = [str(x) for x in list(self.edgeDict.keys())]
+        self.edgeAttrsDF.index = list(self.edgeDict.keys())
+        
+    def getEdgeAttrsDataFrame(self, debug=False):
+        return self.edgeAttrsDF
             
         
         
     ########################################################################################################################
     # Features
     ########################################################################################################################
-    def setEdgeFeature(self, edgeName, key, value):
+    def setEdgeFeature(self, edgeName, key, category, value):
         if self.edgeFeatures.get(edgeName) is None:
             self.edgeFeatures[edgeName] = {}
-        self.edgeFeatures[edgeName][key] = value
+        if self.edgeFeatures[edgeName].get(category) is None:
+            self.edgeFeatures[edgeName][category] = {}
+        self.edgeFeatures[edgeName][category][key] = value
         
-    def getEdgeFeature(self, edgeName, key):
-        return self.edgeFeatures[edgeName][key]
-    
+    def getEdgeFeature(self, edgeName, category, key):
+        try:
+            retval = self.edgeFeatures[edgeName][category][key]
+        except:
+            raise ValueError("Could not get feature for Edge {0}, Category {1} and Key {2}".format(edgeName, category, key))
+        return retval
+            
     def getEdgeFeatures(self, edgeName):
         return self.edgeFeatures[edgeName]
+    
+    def getEdgeCategoryFeatures(self, edgeName, category):
+        return self.edgeFeatures[edgeName][category]

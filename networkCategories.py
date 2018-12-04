@@ -129,8 +129,9 @@ class categories():
 
         
         #### Region
-        self.cats['Region']            = self.getRegionCategories(debug)
-        self.catgetter['Region']       = self.getRegionCategory
+        self.featureMap['CensusRegion'] = self.getStateFeatures
+        self.cats['CensusRegion']       = self.getRegionCategories(debug)
+        self.catgetter['CensusRegion']  = self.getRegionCategory
 
         self.cats['POIUniqueVisits']           = self.getPOICategories(debug)
         self.catgetter['POIUniqueVisits']      = self.getPOICategory
@@ -151,9 +152,13 @@ class categories():
         self.cats['GeoDistanceRatio']       = self.getDistanceRatioCategories(debug)
         self.catgetter['GeoDistanceRatio']  = self.getDistanceRatioCategory
         self.cats['DrivingDistance']       = self.getDistanceCategories(debug)
+        self.catgetter['GeoDistance']  = self.getDistanceCategory
+        self.cats['GeoDistance']       = self.getDistanceCategories(debug)
         self.catgetter['DrivingDistance']  = self.getDistanceCategory
         self.cats['Interval']       = self.getIntervalCategories(debug)
         self.catgetter['Interval']  = self.getIntervalCategory
+        self.cats['FractionalActive']       = self.getFractionActiveCategories(debug)
+        self.catgetter['FractionalActive']  = self.getFractionActiveCategory
         self.cats['OvernightStays']       = self.getOvernightStaysCategories(debug)
         self.catgetter['OvernightStays']  = self.getOvernightStaysCategory
         self.cats['DailyVisits']       = self.getDailyVisitsCategories(debug)
@@ -174,12 +179,15 @@ class categories():
         self.featureMap['Duration']         = self.getDurationFeatures
         self.featureMap['Distance']         = self.getDistanceFeatures
         self.featureMap['DrivingDistance']  = self.getDistanceFeatures
+        self.featureMap['GeoDistance']      = self.getDistanceFeatures
         self.featureMap['GeoDistanceRatio']  = self.getDistanceRatioFeatures
         self.featureMap['Interval']         = self.getIntervalFeatures
+        self.featureMap['FractionalActive']         = self.getFractionActiveFeatures
         self.featureMap['OvernightStays']         = self.getOvernightStaysFeatures
         self.featureMap['DailyVisits']         = self.getDailyVisitsFeatures
         self.featureMap['DayOfWeek']        = self.getDayOfWeekFeatures
         self.featureMap['ITA']              = self.getITAFeatures
+        self.featureMap['N']                = self.getNFeatures
         #self.featureMap['Weight']           = self.getWeightFeatures
         self.featureMap['POIUniqueVisits']  = self.getPOIFeatures
         self.featureMap['HEREPOIAttraction']   = self.getNumericalFeatures
@@ -490,7 +498,11 @@ class categories():
         if f is None:
             retval = {}
             if isinstance(data, dict):
-                retval['Name'] = data.get('Name')
+                retval['Name']  = data.get('Name')
+                retval['Other'] = {}
+                for k,v in data.items():
+                    if k != 'Name':
+                        retval['Other'][k] = v
             elif data is None:
                 retval['Name'] = None
             elif isinstance(data, (int, str, float)):
@@ -1201,6 +1213,7 @@ class categories():
         cbsaFeatures["Pop"]     = cbsaPopCategory
         cbsaFeatures["Housing"] = cbsaHousingCategory
         cbsaFeatures["Area"]    = cbsaAreaCategory
+        
         if debug and False:
             print("  Found the following cbsa features:")
             for k,v in cbsaFeatures.items():
@@ -1849,16 +1862,17 @@ class categories():
         else:
             category="VeryLow"
 
-        if std > 0:
-            sig = avg/std
-            if sig < 1:
-                significance = "Low"
-            elif sig > 3:
-                significance = "High"
+        if std is not None:
+            if std > 0:
+                sig = avg/std
+                if sig < 1:
+                    significance = "Low"
+                elif sig > 3:
+                    significance = "High"
+                else:
+                    significance = "Mid"
             else:
-                significance = "Mid"
-        else:
-            significance = "High"
+                significance = "High"
 
         return category, significance      
 
@@ -1870,6 +1884,9 @@ class categories():
 
         if isinstance(dwelltimeData, dict):
             dwellCategory, dwellSignifance = self.getDwellTimeCategory(dwelltimeData, debug)
+        elif isinstance(dwelltimeData, float):
+            dwellCategory, dwellSignifance = self.getDwellTimeCategory({"Avg": dwelltimeData, "Std": None}, debug)
+            
         else:
             dwellCategory   = None
             dwellSignifance = None
@@ -1912,16 +1929,17 @@ class categories():
         else:
             category="VeryLow"
 
-        if std > 0:
-            sig = avg/std
-            if sig < 1:
-                significance = "Low"
-            elif sig > 3:
-                significance = "High"
+        if std is not None:
+            if std > 0:
+                sig = avg/std
+                if sig < 1:
+                    significance = "Low"
+                elif sig > 3:
+                    significance = "High"
+                else:
+                    significance = "Mid"
             else:
-                significance = "Mid"
-        else:
-            significance = "High"
+                significance = "High"
 
         return category, significance  
 
@@ -1933,6 +1951,8 @@ class categories():
 
         if isinstance(durationData, dict):
             durationCategory, durationSignifance = self.getDurationCategory(durationData, debug)
+        elif isinstance(durationData, float):
+            durationCategory, durationSignifance = self.getDurationCategory({"Avg": durationData, "Std": None}, debug)
         else:
             durationCategory   = None
             durationSignifance = None
@@ -1978,16 +1998,17 @@ class categories():
         else:
             category="VeryLow"
 
-        if std > 0:
-            sig = avg/std
-            if sig < 1:
-                significance = "Low"
-            elif sig > 3:
-                significance = "High"
+        if std is not None:
+            if std > 0:
+                sig = avg/std
+                if sig < 1:
+                    significance = "Low"
+                elif sig > 3:
+                    significance = "High"
+                else:
+                    significance = "Mid"
             else:
-                significance = "Mid"
-        else:
-            significance = "High"
+                significance = "High"
 
         return category, significance
 
@@ -1999,6 +2020,8 @@ class categories():
 
         if isinstance(distanceData, dict):
             distanceCategory, distanceSignifance = self.getDistanceCategory(distanceData, debug)
+        elif isinstance(distanceData, float):
+            distanceCategory, distanceSignifance = self.getDistanceCategory({"Avg": distanceData, "Std": None}, debug)
         else:
             distanceCategory   = None
             distanceSignifance = None
@@ -2040,16 +2063,17 @@ class categories():
         else:
             category="VeryLow"
 
-        if std > 0:
-            sig = avg/std
-            if sig < 1:
-                significance = "Low"
-            elif sig > 3:
-                significance = "High"
+        if std is not None:
+            if std > 0:
+                sig = avg/std
+                if sig < 1:
+                    significance = "Low"
+                elif sig > 3:
+                    significance = "High"
+                else:
+                    significance = "Mid"
             else:
-                significance = "Mid"
-        else:
-            significance = "High"
+                significance = "High"
 
         return category, significance
 
@@ -2061,6 +2085,8 @@ class categories():
 
         if isinstance(distanceRatioData, dict):
             distanceRatioCategory, distanceRatioSignifance = self.getDistanceRatioCategory(distanceRatioData, debug)
+        elif isinstance(distanceRatioData, float):
+            distanceRatioCategory, distanceRatioSignifance = self.getDistanceRatioCategory({"Avg": distanceRatioData, "Std": None}, debug)
         else:
             distanceRatioCategory   = None
             distanceRatioSignifance = None
@@ -2148,16 +2174,17 @@ class categories():
         else:
             category="Short"
 
-        if std > 0:
-            sig = avg/std
-            if sig < 1:
-                significance = "Low"
-            elif sig > 3:
-                significance = "High"
+        if std is not None:
+            if std > 0:
+                sig = avg/std
+                if sig < 1:
+                    significance = "Low"
+                elif sig > 3:
+                    significance = "High"
+                else:
+                    significance = "Mid"
             else:
-                significance = "Mid"
-        else:
-            significance = "High"
+                significance = "High"
 
         return category, significance
 
@@ -2176,6 +2203,52 @@ class categories():
             for k,v in intervalFeatures.items():
                 print("\t",k,"\t",v)
         return intervalFeatures
+
+
+
+
+    ##########################################################################################
+    #
+    # FractionActive Data Information
+    #
+    ##########################################################################################
+    def getFractionActiveCategories(self, debug=False):
+        return ["Low", "Mid", "High"]
+    def getFractionActiveCategory(self, fracact, debug=False):
+        avg = fracact
+        std = 0
+        if fracact is None:
+            category = "Low"
+            significance = None
+            return category, significance
+
+
+        category     = None
+        significance = None
+        if avg >= 0.5:
+            category="High"
+        elif avg >= 0.1:
+            category="Mid"
+        else:
+            category="Low"
+
+        return category, significance
+
+    def getFractionActiveFeatures(self, fractionActiveData, debug):
+        fractionActiveFeatures = {}
+        if fractionActiveData is None:
+            fractionActiveCategory   = None
+            fractionActiveSignifance = None
+        else:
+            fractionActiveCategory, fractionActiveSignifance = self.getFractionActiveCategory(fractionActiveData, debug)
+
+        fractionActiveFeatures["Name"]         = fractionActiveCategory
+        fractionActiveFeatures["Significance"] = fractionActiveSignifance
+        if debug and False:
+            print("  Found the following fraction active features:")
+            for k,v in fractionActiveFeatures.items():
+                print("\t",k,"\t",v)
+        return fractionActiveFeatures
 
 
 
@@ -2205,16 +2278,17 @@ class categories():
         else:
             category="Short"
 
-        if std > 0:
-            sig = avg/std
-            if sig < 1:
-                significance = "Low"
-            elif sig > 3:
-                significance = "High"
+        if std is not None:
+            if std > 0:
+                sig = avg/std
+                if sig < 1:
+                    significance = "Low"
+                elif sig > 3:
+                    significance = "High"
+                else:
+                    significance = "Mid"
             else:
-                significance = "Mid"
-        else:
-            significance = "High"
+                significance = "High"
 
         return category, significance
 
@@ -2262,16 +2336,17 @@ class categories():
         else:
             category="Short"
 
-        if std > 0:
-            sig = avg/std
-            if sig < 1:
-                significance = "Low"
-            elif sig > 3:
-                significance = "High"
+        if std is not None:
+            if std > 0:
+                sig = avg/std
+                if sig < 1:
+                    significance = "Low"
+                elif sig > 3:
+                    significance = "High"
+                else:
+                    significance = "Mid"
             else:
-                significance = "Mid"
-        else:
-            significance = "High"
+                significance = "High"
 
         return category, significance
 
@@ -2317,16 +2392,17 @@ class categories():
         else:
             category="Week"
 
-        if std > 0:
-            sig = avg/std
-            if sig < 1:
-                significance = "Low"
-            elif sig > 3:
-                significance = "High"
+        if std is not None:
+            if std > 0:
+                sig = avg/std
+                if sig < 1:
+                    significance = "Low"
+                elif sig > 3:
+                    significance = "High"
+                else:
+                    significance = "Mid"
             else:
-                significance = "Mid"
-        else:
-            significance = "High"
+                significance = "High"
 
         return category, significance
 
@@ -2338,6 +2414,8 @@ class categories():
 
         if isinstance(dayofweekData, dict):
             dayofweekCategory, dayofweekSignifance = self.getDayOfWeekCategory(dayofweekData, debug)
+        elif isinstance(dayofweekData, float):
+            dayofweekCategory, dayofweekSignifance = self.getDayOfWeekCategory({"Avg": dayofweekData, "Std": None}, debug)
         else:
             dayofweekCategory   = None
             dayofweekSignifance = None
@@ -2349,6 +2427,56 @@ class categories():
             for k,v in dayofweekFeatures.items():
                 print("\t",k,"\t",v)
         return dayofweekFeatures
+
+
+
+
+    ##########################################################################################
+    #
+    # N Data Information
+    #
+    ##########################################################################################
+    def getNCategories(self, debug=False):
+        return ["Low", "Mid", "High"]
+    def getNCategory(self, n, debug=False):
+        try:
+            avg = day['Avg']
+            std = day['Std']
+        except:
+            print("Could not get N information from {0}".format(n))
+
+        category = None
+        significance = None
+        if avg >= 50:
+            category="High"
+        elif avg <= 10:
+            category="Low"
+        else:
+            category="Mid"
+
+        return category, significance
+
+    def getNFeatures(self, nData, debug):
+        nFeatures = {}
+        if nData is None:
+            nCategory   = None
+            nSignifance = None
+
+        if isinstance(nData, dict):
+            nCategory, nSignifance = self.getNCategory(nData, debug)
+        elif isinstance(nData, float):
+            nCategory, nSignifance = self.getNCategory({"Avg": nData, "Std": None}, debug)
+        else:
+            nCategory   = None
+            nSignifance = None
+
+        nFeatures["Name"]         = nCategory
+        nFeatures["Significance"] = nSignifance
+        if debug and False:
+            print("  Found the following N features:")
+            for k,v in nFeatures.items():
+                print("\t",k,"\t",v)
+        return nFeatures
 
 
 
@@ -2380,16 +2508,17 @@ class categories():
         else:
             category="VeryLow"
 
-        if std > 0:
-            sig = avg/std
-            if sig < 1:
-                significance = "Low"
-            elif sig > 3:
-                significance = "High"
+        if std is not None:
+            if std > 0:
+                sig = avg/std
+                if sig < 1:
+                    significance = "Low"
+                elif sig > 3:
+                    significance = "High"
+                else:
+                    significance = "Mid"
             else:
-                significance = "Mid"
-        else:
-            significance = "High"
+                significance = "High"
 
         return category, significance
 

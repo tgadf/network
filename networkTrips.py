@@ -53,7 +53,7 @@ def organizeTrips(df, gc, prec=7, requireGood=True, debug=False, showTrips=False
     overnightStays = getOvernightStays(df, gc, debug=False)
     dwellTimes     = getDwellTimes(df, gc, debug=False)
     commonLocation = getCommonLocation(df, debug=False)
-    homeMetrics    = getHome(dailyVisits, overnightStays, dwellTimes, commonLocation, debug=debug)
+    homeMetrics    = getHome(dailyVisits, overnightStays, dwellTimes, commonLocation, debug=debug, verydebug=False)
     
     goodTrips = 0
     failedDuration = 0
@@ -193,6 +193,7 @@ def organizeTrips(df, gc, prec=7, requireGood=True, debug=False, showTrips=False
         ## vertex metrics
         ###################################################################################################################  
         vtxIDs=[]
+        geoIDs=[]
         for clID, geoID in enumerate(tripKey):
             
             if geoIDtovtxID.get(geoID) is None:                
@@ -201,48 +202,52 @@ def organizeTrips(df, gc, prec=7, requireGood=True, debug=False, showTrips=False
                 vtxIDtogeoID[vtxID] = geoID
             else:
                 vtxID = geoIDtovtxID[geoID]
+            geoIDs.append(geoID)
             vtxIDs.append(vtxID)
 
-            if vtxMetrics.get(vtxID) is None:                
-                vtxMetrics[vtxID] = {"DayOfWeek": [], "DrivingDistance": [], "GeoDistanceRatio": [], "N": 0, "First": startTime.date(), "Last": endTime.date()}
-                vtxMetrics[vtxID]["CoM"]            = gc.getClusterCoM(geoID)
-                vtxMetrics[vtxID]["Geo"]            = clID
-                vtxMetrics[vtxID]["Radius"]         = gc.getClusterRadius(geoID)
-                vtxMetrics[vtxID]["Cells"]          = gc.getClusterCells(geoID)
-                vtxMetrics[vtxID]["Quantiles"]      = gc.getClusterQuantiles(geoID)
-                vtxMetrics[vtxID]["Geohashs"]       = gc.getClusterCellNames(geoID)
+            if vtxMetrics.get(geoID) is None:                
+                vtxMetrics[geoID] = {"DayOfWeek": [], "DrivingDistance": [], "GeoDistanceRatio": [], "N": 0, "First": startTime.date(), "Last": endTime.date()}
+                vtxMetrics[geoID]["CoM"]            = gc.getClusterCoM(geoID)
+                vtxMetrics[geoID]["Radius"]         = gc.getClusterRadius(geoID)
+                vtxMetrics[geoID]["Cells"]          = gc.getClusterCells(geoID)
+                vtxMetrics[geoID]["Quantiles"]      = gc.getClusterQuantiles(geoID)
+                vtxMetrics[geoID]["Geohashs"]       = gc.getClusterCellNames(geoID)
                 try:
-                    vtxMetrics[vtxID]["DwellTime"]      = dwellTimes.get(geoID)
+                    vtxMetrics[geoID]["DwellTime"]      = dwellTimes.get(geoID)
                 except:
-                    vtxMetrics[vtxID]["DwellTime"]      = None
+                    vtxMetrics[geoID]["DwellTime"]      = None
                 try:
-                    vtxMetrics[vtxID]["DailyVisits"]    = dailyVisits.get(geoID)
+                    vtxMetrics[geoID]["DailyVisits"]    = dailyVisits.get(geoID)
                 except:
-                    vtxMetrics[vtxID]["DailyVisits"]    = None
+                    vtxMetrics[geoID]["DailyVisits"]    = None
                 try:
-                    vtxMetrics[vtxID]["OvernightStays"] = overnightStays.get(geoID)
+                    vtxMetrics[geoID]["OvernightStays"] = overnightStays.get(geoID)
                 except:
-                    vtxMetrics[vtxID]["OvernightStays"] = None
+                    vtxMetrics[geoID]["OvernightStays"] = None
+                try:
+                    vtxMetrics[geoID]["IsHome"]         = int(geoID == homeMetrics["GeoID"])
+                except:
+                    vtxMetrics[geoID]["IsHome"]         = None
                     
                 
             ## Fill running counters
-            vtxMetrics[vtxID]["DayOfWeek"].append(isWeekend)
-            vtxMetrics[vtxID]["DrivingDistance"].append(drivingDistance)
-            vtxMetrics[vtxID]["GeoDistanceRatio"].append(geoDistanceRatio)
-            vtxMetrics[vtxID]["N"] += 1
-            vtxMetrics[vtxID]["First"] = min(startTime.date(), vtxMetrics[vtxID]["First"])
-            vtxMetrics[vtxID]["Last"]  = max(endTime.date(), vtxMetrics[vtxID]["Last"])
+            vtxMetrics[geoID]["DayOfWeek"].append(isWeekend)
+            vtxMetrics[geoID]["DrivingDistance"].append(drivingDistance)
+            vtxMetrics[geoID]["GeoDistanceRatio"].append(geoDistanceRatio)
+            vtxMetrics[geoID]["N"] += 1
+            vtxMetrics[geoID]["First"] = min(startTime.date(), vtxMetrics[geoID]["First"])
+            vtxMetrics[geoID]["Last"]  = max(endTime.date(), vtxMetrics[geoID]["Last"])
 
             ## Fill external data
             for extKey,extVal in extData.items():
-                vtxMetrics[vtxID][extKey] = {}
+                vtxMetrics[geoID][extKey] = {}
                 for key, value in extVal.items():
-                    if vtxMetrics[vtxID][extKey].get(key) is None:
-                        vtxMetrics[vtxID][extKey][key] = Counter()
+                    if vtxMetrics[geoID][extKey].get(key) is None:
+                        vtxMetrics[geoID][extKey][key] = Counter()
                     if geoID == geo0:
-                        vtxMetrics[vtxID][extKey][key][value[0]] += 1
+                        vtxMetrics[geoID][extKey][key][value[0]] += 1
                     elif geoID == geo1:
-                        vtxMetrics[vtxID][extKey][key][value[1]] += 1
+                        vtxMetrics[geoID][extKey][key][value[1]] += 1
                     else:
                         raise ValueError("Not sure how this happened!!!! {0}".format(tripKey))
 
@@ -252,9 +257,9 @@ def organizeTrips(df, gc, prec=7, requireGood=True, debug=False, showTrips=False
         ## edge metrics
         ################################################################################################################### 
         edgeGeoID = tripKey
-        edgeID    = tuple(sorted(vtxIDs))
-        vtx0      = vtxIDs[0]
-        vtx1      = vtxIDs[1]
+        edgeID    = tuple(sorted(geoIDs))
+        vtx0      = geoIDs[0]
+        vtx1      = geoIDs[1]
         
         if edgesVtxID.get(edgeID) is None:
             edgesVtxID[edgeID] = 0
@@ -263,7 +268,7 @@ def organizeTrips(df, gc, prec=7, requireGood=True, debug=False, showTrips=False
         if edgeMetrics.get(edgeID) is None:
             edgeMetrics[edgeID] = {"Duration": [], "First": startTime.date(), "Last": endTime.date(), "DayOfWeek": [], "ITA": [],
                                    "GeoDistance": [],"DrivingDistance": [],"GeoDistanceRatio": [],
-                                   "Weight": 0, "Geos": [geo0, geo1], "Locations": [vtxMetrics[vtx0]["CoM"], vtxMetrics[vtx1]["CoM"]]}
+                                   "Weight": 0, "Geos": vtxIDs, "Locations": [vtxMetrics[vtx0]["CoM"], vtxMetrics[vtx1]["CoM"]]}
             
         ## Fill running counters
         edgeMetrics[edgeID]["Duration"].append(duration)
@@ -324,12 +329,10 @@ def organizeTrips(df, gc, prec=7, requireGood=True, debug=False, showTrips=False
     ##########################################################################################################################
     ## Set Home
     ##########################################################################################################################
-    homeCl = homeMetrics["Geo"]
+    homeGeoID = homeMetrics["GeoID"]
     try:
-        homeMetrics["Vtx"] = geoIDtovtxID[homeCl]
-        homeMetrics["Location"] = gc.getClusterCoM(homeCl)
+        homeMetrics["Location"] = gc.getClusterCoM(homeGeoID)
     except:
-        homeMetrics["Vtx"] = None
         homeMetrics["Location"] = [None, None]
             
 

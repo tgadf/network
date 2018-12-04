@@ -1,8 +1,8 @@
 import datetime
 from numpy import int64, float64
-from pandas import DataFrame
 from collections import Counter
-from pandasUtils import getRowData
+from pandas import DataFrame
+from pandasUtils import getRowData, getColData, isDataFrame
 
 
 class vertexInfo():
@@ -171,23 +171,72 @@ class vertexInfo():
         for attrName in list(self.vertexAttrs.keys()):
             if len(self.vertexAttrs[attrName]) == 0:
                 del self.vertexAttrs[attrName]
-                
+            
+        
+    ########################################################################################################################
+    # Clean and Aggregate Attributes
+    ########################################################################################################################
+    def createVertexAttrsDataFrame(self, debug=False):
         if debug:
-            print("Creating Vertex Attributes DataFrame")
+            print("Cleaning Vertex Attribute Names")
         self.vertexAttrsDF = DataFrame(self.vertexAttrs)
         self.vertexAttrsDF.index = list(self.nodeDict.keys())
+        
+    def getVertexAttrsDataFrame(self, debug=False):
+        return self.vertexAttrsDF
             
         
     ########################################################################################################################
     # Features
     ########################################################################################################################
-    def setVertexFeature(self, vertexName, key, value):
+    def setVertexFeature(self, vertexName, category, key, value):
+        ### Fix name (if needed)
+        if key.startswith("OSM"):
+            key = key[3:]
+        if key.endswith("Name"):
+            key = key[:-4]
+        if key.startswith("CENSUS"):
+            key = key[6:]
+        if key.startswith("CENSUS"):
+            key = key[6:]
+        if key.startswith("ROADS"):
+            key = key[5:]
+        if key.startswith("RAIL"):
+            key = key[4:]
+        if key.startswith("POIHERE"):
+            key = key[7:]
+            
         if self.vertexFeatures.get(vertexName) is None:
             self.vertexFeatures[vertexName] = {}
-        self.vertexFeatures[vertexName][key] = value
+        if self.vertexFeatures[vertexName].get(category) is None:
+            self.vertexFeatures[vertexName][category] = {}
+        self.vertexFeatures[vertexName][category][key] = value
         
-    def getVertexFeature(self, vertexName, key):
-        return self.vertexFeatures[vertexName][key]
+    def getVertexFeature(self, vertexName, category, key):
+        try:
+            retval = self.vertexFeatures[vertexName][category][key]
+        except:
+            raise ValueError("Could not get feature for Vertex {0}, Category {1} and Key {2}".format(vertexName, category, key))
+        return retval
     
     def getVertexFeatures(self, vertexName):
         return self.vertexFeatures[vertexName]
+    
+    def getVertexCategoryFeatures(self, vertexName, category):
+        return self.vertexFeatures[vertexName][category]
+            
+        
+    ########################################################################################################################
+    # DataFrame of Important Features
+    ########################################################################################################################
+    def getVertexHomeFeaturesDataFrame(self):
+        homeFeatures = ["DwellTime", "DailyVisits", "OvernightStays", "Interval"]
+        if isDataFrame(self.vertexAttrsDF):
+            colnames = ["N", "IsHome"]
+            for poscolname in homeFeatures:
+                colnames += [x for x in self.vertexAttrsDF.columns if x.find(poscolname) != -1]
+            homeFeaturesDF = getColData(self.vertexAttrsDF, colnames=colnames)
+            return homeFeaturesDF
+        else:
+            print("Vertex Attributes DataFrame is not ready yet!")
+            return None

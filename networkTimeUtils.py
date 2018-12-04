@@ -44,6 +44,8 @@ def getOvernightStays(trips, gc, debug=False):
     for tripno, trip in trips.iterrows():
         startGeo = trip['startGeo']
         endGeo   = trip['endGeo']
+        overnightStays[startGeo] += 0
+        overnightStays[endGeo] += 0
             
         if debug:
             print("\nTripNo: {0} -----> {1} , {2}, {3}, {4}".format(tripno, startGeo, endGeo, trip['start'], trip['end']))
@@ -110,7 +112,7 @@ def getDwellTimes(trips, gc, debug=False):
         hours = dTime.seconds/3600
         if hours < 24:
             if dwellTimes.get(startGeo) is None:
-                dwellTimes[startGeo] = []            
+                dwellTimes[startGeo] = []
             dwellTimes[startGeo].append(hours)
             dwellData.append(hours)
 
@@ -141,25 +143,24 @@ def getDailyVisits(trips, debug=False):
     if 'Start' not in trips.columns:
         return None
         
-    trips['start'] = castDateTime(trips['Start'])
-    trips['end']   = castDateTime(trips['End'])
-    trips['date']  = convertToDate(trips['start'])
-    dmm = trips.groupby('date').agg({'start': min, 'end': max})
-    dfStart = dmm.merge(trips, on=['start'])
-    dfEnd   = dmm.merge(trips, on=['end'])
-    
-    startGeo = dfStart["geo0"]
-    endGeo   = dfEnd["geo1"]
-    from pandas import concat
-    try:
-        visits = concat([startGeo, endGeo], axis=0).reset_index(drop=True).value_counts()
-        visits = dict(visits)
-    except:
-        visits = None
-        raise ValueError("Could not create ordered list of geos for last place/first place")
+    dvData = {}
+    from pandas import to_datetime
+    trips['Date'] = to_datetime(trips['Start']).dt.date
+    for tripno, trip in trips.iterrows():
+        startGeo = trip['geo0']
+        endGeo   = trip['geo1']
+        if dvData.get(startGeo) is None:
+            dvData[startGeo] = set()
+        if dvData.get(endGeo) is None:
+            dvData[endGeo] = set()
+            
 
-    retval = visits
-    return retval
+        sData = trip['Date']
+        dvData[startGeo].add(sData)
+        dvData[endGeo].add(sData)
+        
+    dvData = {k: len(v) for k,v in dvData.items()}
+    return dvData
 
 
 #############################################################################################################################
@@ -183,37 +184,50 @@ def getCommonLocation(trips, debug=False):
 #############################################################################################################################
 # Guess Home
 #############################################################################################################################
-def getHome(dailyVisits, overnightStays, dwellTimes, commonLocation, debug=False):
+def getHome(dailyVisits, overnightStays, dwellTimes, commonLocation, debug=False, verydebug=False):
     if debug:
         print("Deriving Home From Daily Visits, Overnight Stays, Dwell Times, and Common Location")
         
     if all([dailyVisits, overnightStays, dwellTimes]):
         ## Possible clusters come from overnight stays
+        possibleDTCls = [k for k,v in dwellTimes.items() if v > 0]
         if debug:
-            print("There are {0} possible home clusters".format(len(overnightStays)))
-
+            print("There are {0} possible home clusters".format(len(dwellTimes)))
+            if verydebug:
+                print("  CLs: {0}".format(possibleDTCls))
+                
         ## Require at least two overnight stays for home
-        possibleOSCls = [k for k,v in overnightStays.items() if v >= 2]
+        possibleDTCls = [k for k,v in dwellTimes.items() if v >= 2]
         if debug:
-            print("There are {0} possible home clusters with at least two overnight stays".format(len(possibleOSCls)))
+            print("There are {0} possible home clusters with at least two hours of dwell time".format(len(possibleDTCls)))
+            if verydebug:
+                print("  CLs: {0}".format(possibleDTCls))
 
         ## Require at least ten daily visits for home
         possibleDVCls = [k for k,v in dailyVisits.items() if v >= 10]
         if debug:
             print("There are {0} possible home clusters with at least ten daily visits".format(len(possibleDVCls)))
+            if verydebug:
+                print("  CLs: {0}".format(possibleDVCls))
 
         ## Rank remaining cluster dwell times
         dts = {}
-        for cl,dt in dwellTimes.items():
-            if cl in possibleOSCls and cl in possibleDVCls:
+        for cl,dt in overnightStays.items():
+            if cl in possibleDTCls and cl in possibleDVCls and dt > 0:
                 dts[cl] = dt
             
         from pandas import Series
         dts = Series(dts)
         dts.sort_values(ascending=False, inplace=True)
         if debug:
-            print("There are {0} possible home clusters with active dwell times".format(dts.count()))
+            print("There are {0} possible home clusters with overnight stays".format(dts.count()))
+            if verydebug:
+                print("  CLs: {0}".format(possibleDVCls))
 
+        if verydebug:
+            print("  Ranked List:")
+            print("{0}".format(dts))
+               
         possibleHomes  = dts.count()
         try:
             homeCl     = dts.index[0]
@@ -228,7 +242,7 @@ def getHome(dailyVisits, overnightStays, dwellTimes, commonLocation, debug=False
 
         if debug:
             print("Selecting {0} as the home cluster with significance {1}, {2} overnight stays, {3} daily visits, and {4} dwell time hours.".format(homeCl, homeRatio, overnightStays[homeCl], dailyVisits[homeCl], round(dwellTimes[homeCl],1)))
-        retval = {"Geo": homeCl, "Vtx": None, "Ratio": homeRatio, "Days": dailyVisits[homeCl], "Possible": possibleHomes}
+        retval = {"GeoID": homeCl, "Vtx": None, "Ratio": homeRatio, "Days": dailyVisits[homeCl], "Possible": possibleHomes}
     
     else:
         from pandas import Series
@@ -248,7 +262,7 @@ def getHome(dailyVisits, overnightStays, dwellTimes, commonLocation, debug=False
             
         if debug:
             print("Selecting {0} as the home cluster with the most common location.".format(homeCl))
-        retval = {"Geo": homeCl, "Vtx": None, "Ratio": homeRatio, "Days": None, "Possible": 1}
+        retval = {"GeoID": homeCl, "Vtx": None, "Ratio": homeRatio, "Days": None, "Possible": 1}
    
     
     return retval

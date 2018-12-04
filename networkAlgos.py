@@ -137,7 +137,7 @@ class networkAlgos():
         algosToRun.append(algos.graph_number_of_cliques)
         algosToRun.append(algos.node_clique_number)
         algosToRun.append(algos.number_of_cliques)
-        algosToRun.append(algos.cliques_containing_node)
+        #algosToRun.append(algos.cliques_containing_node) # Use for further analysis, but too complex
         return algosToRun
 
     def getClustering(self):
@@ -147,7 +147,7 @@ class networkAlgos():
         algosToRun.append(algos.clustering)
         algosToRun.append(algos.average_clustering)
         algosToRun.append(algos.square_clustering)
-        algosToRun.append(algos.generalized_degree)
+        #algosToRun.append(algos.generalized_degree) # Returns dictionary ?
         return algosToRun
 
     def getCommunicability(self):
@@ -454,7 +454,7 @@ class networkAlgos():
                 v = int(v)
             #if v is None:
             #    continue
-
+            
             if not isinstance(v, dict):
                 if k in ['cycle_basis', 'minimum_cycle_basis', 'find_cycle', 'center', 'periphery', 'dominating_set', 'maximal_independent_set']:
                     x = {}
@@ -463,7 +463,10 @@ class networkAlgos():
                     if v is not None:
                         for cycle in v:
                             for node in cycle:
-                                x[node] += 1
+                                try:
+                                    x[node] += 1
+                                except:
+                                    continue
                     v = dict(x)
                     retval[k] = v
                     #print(k,'\t',type(v),'\t',len(v))
@@ -509,7 +512,9 @@ class networkAlgos():
                     pass
                     #print(k,'\t',type(v),'\t',v)
             else:
-                if k in ['k_components']:
+                if k in ['cliques_containing_node']:
+                    v = {k2: len(v2) for k2,v2 in v.items()}
+                elif k in ['k_components']:
                     v = {k2: len(v2[0]) for k2,v2 in v.items()}
                     retval[k] = v
                     #print(k,'\t',type(v),'\t',len(v))

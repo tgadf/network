@@ -194,11 +194,11 @@ def getTripPOIID(trip):
 
 def getTripKey(trip):
     try:
-        key  = [trip["geo0"],trip["geo1"]]
+        key  = [str(trip["geo0"]),str(trip["geo1"])]
     except:
         trip['geo0'] = getGeo([trip["lat0"], trip["long0"]], 8)
         trip['geo1'] = getGeo([trip["lat1"], trip["long1"]], 8)
-        key  = [trip["geo0"],trip["geo1"]]
+        key  = [str(trip["geo0"]),str(trip["geo1"])]
         #raise ValueError("Could not create trip key for {0}".format(trip))
         #key  = [None,None]
     return key
