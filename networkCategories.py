@@ -159,6 +159,8 @@ class categories():
         self.catgetter['Interval']  = self.getIntervalCategory
         self.cats['FractionalActive']       = self.getFractionActiveCategories(debug)
         self.catgetter['FractionalActive']  = self.getFractionActiveCategory
+        self.cats['FractionalVisits']       = self.getFractionVisitsCategories(debug)
+        self.catgetter['FractionalVisits']  = self.getFractionVisitsCategory
         self.cats['OvernightStays']       = self.getOvernightStaysCategories(debug)
         self.catgetter['OvernightStays']  = self.getOvernightStaysCategory
         self.cats['DailyVisits']       = self.getDailyVisitsCategories(debug)
@@ -183,6 +185,7 @@ class categories():
         self.featureMap['GeoDistanceRatio']  = self.getDistanceRatioFeatures
         self.featureMap['Interval']         = self.getIntervalFeatures
         self.featureMap['FractionalActive']         = self.getFractionActiveFeatures
+        self.featureMap['FractionalVisits']         = self.getFractionVisitsFeatures
         self.featureMap['OvernightStays']         = self.getOvernightStaysFeatures
         self.featureMap['DailyVisits']         = self.getDailyVisitsFeatures
         self.featureMap['DayOfWeek']        = self.getDayOfWeekFeatures
@@ -2225,9 +2228,9 @@ class categories():
 
         category     = None
         significance = None
-        if avg >= 0.5:
+        if avg >= 0.8:
             category="High"
-        elif avg >= 0.1:
+        elif avg >= 0.6:
             category="Mid"
         else:
             category="Low"
@@ -2241,6 +2244,55 @@ class categories():
             fractionActiveSignifance = None
         else:
             fractionActiveCategory, fractionActiveSignifance = self.getFractionActiveCategory(fractionActiveData, debug)
+
+        fractionActiveFeatures["Name"]         = fractionActiveCategory
+        fractionActiveFeatures["Significance"] = fractionActiveSignifance
+        if debug and False:
+            print("  Found the following fraction active features:")
+            for k,v in fractionActiveFeatures.items():
+                print("\t",k,"\t",v)
+        return fractionActiveFeatures
+
+
+
+
+    ##########################################################################################
+    #
+    # FractionActive Data Information
+    #
+    ##########################################################################################
+    def getFractionVisitsCategories(self, debug=False):
+        return ["Daily", "Weekly", "Monthly", "Infrequently"]
+    def getFractionVisitsCategory(self, fracact, debug=False):
+        avg = fracact
+        std = 0
+        if fracact is None:
+            category = "Infrequently"
+            significance = None
+            return category, significance
+
+
+        category     = None
+        significance = None
+        if avg >= 10.0/30.0:
+            category="Daily"
+        elif avg >= 3.0/30.0:
+            category="Weekly"
+        elif avg >= 0.5/30.0:
+            category="Monthly"
+        else:
+            category="Infrequently"
+            
+
+        return category, significance
+
+    def getFractionVisitsFeatures(self, fractionActiveData, debug):
+        fractionActiveFeatures = {}
+        if fractionActiveData is None:
+            fractionActiveCategory   = None
+            fractionActiveSignifance = None
+        else:
+            fractionActiveCategory, fractionActiveSignifance = self.getFractionVisitsCategory(fractionActiveData, debug)
 
         fractionActiveFeatures["Name"]         = fractionActiveCategory
         fractionActiveFeatures["Significance"] = fractionActiveSignifance

@@ -20,7 +20,7 @@ setup(
     'Topic :: Software Development :: Libraries :: Python Modules',
     'Topic :: Utilities'
   ],
-  install_requires=['census==0.0.1', 'utils==0.0.1', 'geocluster==0.0.1', 'networkx>=2.2', 'haversine>=1.0.1', 'pandas>=0.23.4', 'numpy>=0.15.4'],
+  install_requires=['census==0.0.1', 'utils==0.0.1', 'geocluster==0.0.1', 'networkx>=2.2', 'haversine>=1.0.1', 'pandas>=0.23.4', 'numpy>=0.15.4', 'folium>=0.6.0'],
   dependency_links=['git+ssh://git@github.com/tgadf/utils.git#egg=utils-0.0.1', 'git+ssh://git@github.com/tgadf/census.git#egg=census-0.0.1', 'git+ssh://git@github.com/tgadf/geocluster.git#egg=geocluster-0.0.1']
 )
  

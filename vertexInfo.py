@@ -191,26 +191,37 @@ class vertexInfo():
     ########################################################################################################################
     def setVertexFeature(self, vertexName, category, key, value):
         ### Fix name (if needed)
-        if key.startswith("OSM"):
-            key = key[3:]
-        if key.endswith("Name"):
-            key = key[:-4]
-        if key.startswith("CENSUS"):
-            key = key[6:]
-        if key.startswith("CENSUS"):
-            key = key[6:]
-        if key.startswith("ROADS"):
-            key = key[5:]
-        if key.startswith("RAIL"):
-            key = key[4:]
-        if key.startswith("POIHERE"):
-            key = key[7:]
+        if True:
+            if key.startswith("OSM"):
+                key = key[3:]
+            if key.endswith("Name"):
+                key = key[:-4]
+            if key.startswith("CENSUS"):
+                key = key[6:]
+            if key.startswith("CENSUS"):
+                key = key[6:]
+            if key.startswith("ROADS"):
+                key = key[5:]
+            if key.startswith("RAIL"):
+                key = key[4:]
+            if key.startswith("POIHERE"):
+                key = key[7:]
+            if key.startswith("TERMINALS"):
+                key = key[9:]
             
         if self.vertexFeatures.get(vertexName) is None:
             self.vertexFeatures[vertexName] = {}
         if self.vertexFeatures[vertexName].get(category) is None:
             self.vertexFeatures[vertexName][category] = {}
-        self.vertexFeatures[vertexName][category][key] = value
+        if self.vertexFeatures[vertexName][category].get(key) is not None:
+            curval = self.vertexFeatures[vertexName][category][key]
+            if isinstance(curval, int):
+                newval = max(curval,value)
+                self.vertexFeatures[vertexName][category][key] = newval
+            else:
+                raise ValueError("Overwriting {0}/{1} and it's not an integer".format(category, key))
+        else:
+            self.vertexFeatures[vertexName][category][key] = value
         
     def getVertexFeature(self, vertexName, category, key):
         try:

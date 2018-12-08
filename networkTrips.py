@@ -323,7 +323,13 @@ def organizeTrips(df, gc, prec=7, requireGood=True, debug=False, showTrips=False
             vtxMetrics[vtxID]["FractionalActive"]  = vtxMetrics[vtxID]["Interval"] / float(totalDays)
         except:
             vtxMetrics[vtxID]["FractionalActive"]  = None
+           
+        try:
+            vtxMetrics[vtxID]["FractionalVisits"]  = vtxMetrics[vtxID]["DailyVisits"] / float(totalDays)
+        except:
+            vtxMetrics[vtxID]["FractionalVisits"]  = None
             
+        #print(vtxID,'\t',vtxMetrics[vtxID]["DailyVisits"] / float(totalDays),'\t',vtxMetrics[vtxID]["FractionalVisits"])
         
         
     ##########################################################################################################################
