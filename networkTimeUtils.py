@@ -3,6 +3,7 @@
 import pandas as pd
 from timeUtils import clock, elapsed, getTimeSuffix, getDateTime, addDays, printDateTime, getFirstLastDay
 from pandasUtils import castDateTime, castInt64, cutDataFrameByDate, convertToDate, isSeries, isDataFrame, getColData
+from geoUtils import getDist
 import geohash
 
 
@@ -16,7 +17,7 @@ def checkStartingLocation(startGeo, prevGeo, gc, debug=False):
     if startGeo != prevGeo:
         comPrevGeo  = gc.getClusterCoM(prevGeo)
         comStartGeo = gc.getClusterCoM(startGeo)
-        dist        = gc.getDist(comPrevGeo, comStartGeo)
+        dist        = getDist(comPrevGeo, comStartGeo)
         if dist > 500:
             return False
     

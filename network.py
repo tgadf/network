@@ -1,289 +1,134 @@
+import networkx as nx
+from edgeInfo import edgeInfo
+from vertexInfo import vertexInfo
 
-# coding: utf-8
-
-# # Visualize Networks
-
-# In[78]:
-
-import pandas as pd
-import igraph as ig
-from timeUtils import clock, elapsed, getTimeSuffix, getDateTime, addDays, printDateTime, getFirstLastDay
-from pandasUtils import castDateTime, castInt64, castFloat64, cutDataFrameByDate, convertToDate, isSeries, isDataFrame, getColData
-from networkTrips import getTripsFromPandas
-import geohash
-from haversine import haversine
-from geoClustering import geoClusters, geoCluster
-
-from pyspark.sql.window import Window
-from pyspark.sql.functions import avg, sum, udf, countDistinct, col, datediff, max, min, stddev, count, skewness, asc
-from pyspark.sql.functions import kurtosis, corr, hour, date_format, desc, sqrt, weekofyear, month, dayofyear, pow
-from pyspark.sql.types import IntegerType, BooleanType, DateType, StringType, LongType, Row
-import pyspark.sql.types as T
-
-
-def rows_to_pandas_df(rows):
-    """Converts an iterable of rows to a pandas dataframe"""
-    return pd.DataFrame([row.asDict() for row in rows])
-
-def pandas_df_to_rows(df):
-    """Converts a pandas dataframe to an iterable of rows"""
-    for index, *values in df.itertuples():
-        yield Row(**{k:v for k, v in zip(df.columns.values, values)})
+class network():
+    def __init__(self, directed=True, debug=False):
+        self.debug = debug
+        self.directed = directed
         
+        self.orderedEdges    = None
+        self.edgeDict        = None
+        self.orderedVertices = None
+        self.nodeDict        = None
         
-def computeNetworkFeatures(dn, numFeats, useExternal=True, debug=False):
-    from modelio import loadJoblib
-    if debug is True:
-        startnf, cmtnf = clock("Getting network features")
-    from networkFeatures import networkFeatures
-    nf = networkFeatures(network=dn, expectedFeatures=numFeats)
+        if self.directed is True:
+            self.g = nx.DiGraph()
+        else:
+            self.g = nx.Graph()
+
+        self.eInfo            = edgeInfo(self.g, self.debug)
+        self.getEdges         = self.eInfo.getEdges
+        self.getEdge          = self.eInfo.getEdgeData
+        self.getEdgeByName    = self.eInfo.getEdgeDataByName
+        self.getEdgeAttrsGroups     = self.eInfo.getAttrGroups
+        self.setEdgeFeature   = self.eInfo.setEdgeFeature        
+        self.getEdgeFeature   = self.eInfo.getEdgeFeature
+        self.getEdgeFeatures  = self.eInfo.getEdgeFeatures
+        self.getEdgeNum       = self.eInfo.getEdgeNumByName
         
-    ## Fill Data
-    nf.fillInternalData(debug)
-    nf.fillExternalNetworkData(debug=debug)
-    nf.fillExternalGeospatialData(debug=debug)
+        self.vInfo                  = vertexInfo(self.g, self.debug)
+        self.getVertices            = self.vInfo.getVertices
+        self.getVertex              = self.vInfo.getVertexData
+        self.getVertexByName        = self.vInfo.getVertexDataByName
+        self.getVertexAttrsGroups   = self.vInfo.getAttrGroups
+        self.setVertexFeature       = self.vInfo.setVertexFeature
+        self.getVertexFeature       = self.vInfo.getVertexFeature
+        self.getVertexFeatures      = self.vInfo.getVertexFeatures
+        self.getVertexNum           = self.vInfo.getVertexNumByName
+            
+    def setDebug(self, debug):
+        self.debug = debug
+        
+    def getNetwork(self):
+        return self.g
     
-    ## Fill Census Data
-    nf.fillExternalCensusData(debug=debug)
     
-    ## Fill Features/Attrs
-    nf.fillVertexFeatureData(debug=debug)
-    nf.fillEdgeFeatureData(debug=debug)
-
-    ## Vertices
-    nf.setVertexExternalDataCounts(debug=debug)    
-    nf.setVertexFractions(debug=debug)
-    nf.setVertexRatios(debug=debug)
-    #nf.setVertexFeatures(debug=debug)
-    nf.setVertexCorrelations(debug=debug)    
-
-    ## Edges    
-    nf.setEdgeExternalDataCounts(debug=debug)
-    nf.setEdgeFractions(debug=debug)
-    nf.setEdgeRatios(debug=debug)
-    #nf.setEdgeFeatures(debug=debug)
-    nf.setEdgeCorrelations(debug=debug)
-
-    ## Global
-    nf.setGlobalNetworkFeatures(debug=debug)
-    #nf.setCliqueStructure(debug=debug)
-    nf.setCommunityStructure(debug=debug)
-    nf.setDyadCensus(debug=debug)
-    nf.setArticulationStructure(debug=debug)
-
-    ## Home
-    nf.setHomeFeatures(debug=debug)
-
-    if debug is True:
-        elapsed(startnf, cmtnf)
+    def update(self, debug=False):
+        if debug:
+            print("Updating Vertices/Edges")
+        self.eInfo.orderEdges(debug=debug)
+        self.vInfo.orderVertices(debug=debug)
         
-    return nf
+            
+    def flattenAttrs(self, debug=False):
+        if debug:
+            print("Flattening Vertices/Edges")
+        self.eInfo.flattenEdgeAttrs(debug=debug)
+        self.vInfo.flattenVertexAttrs(debug=debug)
+        
+    
+    def collectAttrs(self, debug=False):
+        if debug:
+            print("Collecting Vertices/Edges")
+        self.eInfo.collectEdgeAttrs(debug=debug)
+        self.vInfo.collectVertexAttrs(debug=debug)
+    
+        if debug:
+            print("Creating Vertex Attrs DataFrame")
+        self.vInfo.createVertexAttrsDataFrame(debug=debug)
+    
+        if debug:
+            print("Creating Edge Attrs DataFrame")
+        self.eInfo.createEdgeAttrsDataFrame(debug=debug)
+    
+    
+    
+    
+    ################################################################################################
+    # Show Network Data
+    ################################################################################################    
+    def showVertices(self):
+        for nodename,node in self.g.nodes_iter(data=True):
+            print(nodename,'\t',node)
+                
+    def showEdges(self):
+        for edgename,edge in self.g.adj.items():
+            print(edgename,'\t',edge)
+                
+                
 
+        
+    ################################################################################################
+    # Vertices / Nodes / Location (Initial Functions)
+    ################################################################################################    
+    def addVertex(self, name, attrs={}):
+        self.g.add_node(u=name, attr_dict=attrs)
+        if self.debug:
+            print("  Added node: [{0}]".format(", ".join(names)))
+                    
+    def updateVertexAttrs(self, attrs, debug=False):
+        if debug:
+            print("Updating Vertex Attributes")
+        if not isinstance(attrs, dict):
+            print("Cannot add vertex attrs because the input is not a dict")
+            return
+        nx.set_node_attributes(G=self.g, values=attrs, name=None)
             
         
-def extract_features(df,prec=7,collectMetrics=True,debug=False,calcFeatures=True,
-                     returnNetwork=False,useExternal=True,reqGood=True,numFeats=3067):
-    """Takes in a Pandas dataframe containing all of the trip-gps data
-    from a single device and extracts relevant features from it
-    
-    Input:
-    input_df: (Pandas DataFrame) The input, gps-point level dataframe
-    containing raw data
-    Output:
-    output_df: (Pandas DataFrame) The output, day level dataframe
-    containing extracted features
-    """
-    import pandas as pd
-    import geohash
-    from numpy import amax, nan
-    
-    
-    ## Make sure everything has the correct type
-    df['lat0']  = castFloat64(df['lat0'])
-    df['long0'] = castFloat64(df['long0'])
-    df['lat1']  = castFloat64(df['lat1'])
-    df['long1'] = castFloat64(df['long1'])
-    df['total_miles'] = castFloat64(df['total_miles'])
-    df = df.replace('nan', nan)
-    
-    
-    
-    ## Make sure everything is sorted by time
-    if debug is True:
-        start = clock("Sorting data by time")
-    df.sort_values(by="Start", ascending=True, inplace=True)
-    if debug is True:
-        elapsed(start, "Done sorting data by time")
-    
-    devices = list(df['device'].unique())
-    current_device = str(devices[0])
-    if len(devices) > 1:
-        raise ValueError("There are [{0}] multiple devices".format(devices))
-    
-
-    #######################################################################################
-    # Cluster Geo Data (Lat, Long)
-    #######################################################################################
-    points         = df[["lat0", "long0"]]
-    points.columns = ["lat", "long"]
-    pnts           = df[["lat1", "long1"]]
-    pnts.columns   = ["lat", "long"]    
-    points         = points.append(pnts)
-    
-    
-    
-    #######################################################################################
-    # Create Clusters
-    #######################################################################################
-    gc   = geoClusters(device=current_device, points=points, distMax=300, debug=debug)
-    tmp  = gc.getGeoDataFrame()
-    tmp2 = gc.getGeoCntsSeries()    
-    gc.findClusters(seedMin=2, debug=debug)
-    if debug:
-        print("Found {0} clusters using {1} cells and {2} counts".format(gc.getNClusters(), gc.getNCells(), gc.getNCounts()))
-
-    
-    
-    #######################################################################################
-    # Set Nearest Clusters
-    #######################################################################################
-    if debug:
-        start, cmt = clock("Finding Nearest Clusters for Start of Trips")
-    geoResults = df[['lat0', 'long0']].apply(gc.getNearestClusters, axis=1).values
-    df["geo0"] = [x[0] for x in geoResults]
-    if debug:
-        elapsed(start, cmt)
-        start, cmt = clock("Finding Nearest Clusters for End of Trips")
-    geoResults = df[['lat1', 'long1']].apply(gc.getNearestClusters, axis=1).values
-    df["geo1"] = [x[0] for x in geoResults]    
-    if debug:
-        elapsed(start, cmt)
         
-
+    ################################################################################################
+    # Edges / Trips (Initial Functions)
+    ################################################################################################    
+    def addEdge(self, names, attrs={}, sort=False):
+        if not isinstance(names, (tuple,list,set)):
+            print("Cannot add edge {0} because the names need to come in a tuple/list/set.".format(names))
+            return
+        if len(names) == 2:
+            if sort is True:
+                names = sorted([str(x) for x in names])
+            else:
+                names = [str(x) for x in names]
+        else:
+            print("Cannot add edge {0} because we need two entries in the tuple/list/set.".format(names))
+            return
         
-    #######################################################################################
-    # Network Trips
-    #######################################################################################
-    if debug is True:
-        start, cmt = clock("Getting trips for network")
-    trips   = getTripsFromPandas(df, gc, prec=7, debug=debug, collectMetrics=collectMetrics, requireGood=reqGood)
-    if debug is True:
-        elapsed(start, cmt)
-        
-        
-        
-    #######################################################################################
-    # Driver Network
-    #######################################################################################
-    if debug is True:
-        startdn, cmtdn = clock("Creating driver network")        
-    from driverNetwork import driverNetwork
-    dn = driverNetwork(trips)
-    dn.createNetwork(debug=debug)
-    dn.setVertexOrder(debug=debug)
-    dn.setEdgeOrder(debug=debug)
-    dn.setNetworkAttributes(debug=debug)
-    if debug is True:
-        elapsed(startdn, cmtdn)
-        
-        
-    #######################################################################################
-    # Network Features
-    #######################################################################################
-    if calcFeatures is True:
-        nf = computeNetworkFeatures(dn, numFeats, useExternal, debug)
-    else:
-        nf = None
-
-    if returnNetwork is True or nf is None:
-        return nf, dn, trips
-    else:
-        df = nf.getFeatureDataFrame(debug=debug) 
-        return df
-
-
-
-def makeNetworkDir(device, rm=False):
-    from os import mkdir
-    from os.path import exists, isdir
-    dirname = "plots/{0}".format(device)
-    if isdir(dirname) and rm is True:
-        import shutil
-        shutil.rmtree(dirname)
-        
-    
-    try:
-        mkdir(dirname)
-    except:
-        if rm is True:
-            raise ValueError("Could not make ".format(dirname))
-    return False
-
-
-# In[68]:
-    
-
-def distHash(gcode1, gcode2):
-    """
-    distHash(gcode1, gcode2)
-    
-    inputs: gcode1 (geohash), gcode2 (geohash)
-    outputs: distance (km)
-    """
-    pnt1 = geohash.decode_exactly(gcode1)[:2]
-    pnt2 = geohash.decode_exactly(gcode2)[:2]
-    dist = haversine(pnt1, pnt2)
-    return dist
-
-
-def createNetworkGraph(trips):
-    """
-    createNetworkGraph():
-    
-    Inputs:
-      > trips: a dictionary of vertices, edges, and metrics produced by getTripsFromPandas()
-      
-    Outputs:
-      > igraph object
-    """
-    import igraph
-    stats = {}
-        
-    g = ig.Graph()
-    try:
-        g.add_vertices(len(trips['vertexNameToID']))
-        stats['Vertices'] = len(trips['vertexNameToID'])
-    except:
-        print("Could not add vertices to graph!")
-        return None
-    
-    try:
-        edgList = list(trips['edgesVtxID'].keys())
-        stats['Edges'] = len(edgList)
-        g.add_edges(edgList)
-    except:
-        print("Could not add edges to graph!")
-        return None
-
-    stats['Trips']    = 0
-    stats['MaxTrip'] = {"Trip": None, "Weight": 0}
-    for idx, e in enumerate(g.es):
-        try:
-            e["weight"] = trips['edgesVtxID'][e.tuple]
-        except:
-            e['weight'] = 1
-
-        stats['Trips'] += e['weight']
-        if e['weight'] > stats['MaxTrip']["Weight"]:
-            stats['MaxTrip'] = {"Trip": e.tuple, "Weight": e['weight']}
+        self.g.add_edge(names[0], names[1], attr_dict=attrs)
+        if self.debug:
+            print("  Added edge: [{0}]".format(", ".join(names)))
             
-    vertex_id, vertex = getVertex(g, 0)
-    stats['CentralVtx'] = {"ID": vertex_id}
-            
-    return g, stats
-
-
-def getNetworkGraph(df, gc, prec=7, debug=False, collectMetrics=True):
-    trips   = getTripsFromPandas(df, gc, prec=7, debug=debug, collectMetrics=collectMetrics)
-    g,stats = createNetworkGraph(trips)   
-    return g, trips, stats
+    def updateEdgeAttrs(self, attrs):
+        if not isinstance(attrs, dict):
+            print("Cannot add edge attrs because the input is not a dict")
+            return
+        nx.set_edge_attributes(G=self.g, values=attrs)
