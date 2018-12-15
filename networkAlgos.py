@@ -548,6 +548,17 @@ class networkAlgos():
         df = DataFrame(results['Nodes'])
         df.index = list(self.nodeList)
         results['Nodes'] = df
+        
+        if debug:
+            print("Ranking Vertices")
+        ranks = {}
+        for col in df.columns:
+            rank = [int(x) for x in df[col].rank()]
+            ranks[col] = rank
+        df = DataFrame(ranks)
+        df.index = list(self.nodeList)
+        results['NodeRanks'] = df
+            
 
         if debug:
             print("Creating Algorithm Results DataFrame for Edges")

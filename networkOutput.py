@@ -1,3 +1,5 @@
+from numpy import log10
+
 class printNetwork():
     def __init__(self, dn):
         self.dn = dn
@@ -41,7 +43,7 @@ class printNetwork():
         vertices = self.dn.getVertices()
         print("\n\n======================================== {0} Vertices (min {1}) ========================================\n".format(len(vertices), minN))
         from collections import OrderedDict
-        header = OrderedDict({"#": 4, "Cl": 5, "N": 5, "Home": 5, "Active": 7, "DayWeek": 8, "Dwell": 9, "Place": 20, "State": 20, "Cliques": 8, "Cluster": 8, "Degree": 8, "DCentral": 9, "ECentral": 9, "ShortPath": 10, "PageRank": 8})
+        header = OrderedDict({"#": 4, "Cl": 6, "N": 6, "Home": 5, "Active": 10, "DayWeek": 10, "Dwell": 10, "Place": 25, "Cliques": 8, "Cluster": 8, "Degree": 8, "Centrality": 12, "ShortPath": 12, "Spectral": 12, "PageRank": 10, "Spectral": 10, "POIs": 50})
         for k,v in header.items():
             print('{cmt: <{width}}'.format(cmt=k, width=v), end="")
         print("")
@@ -50,98 +52,142 @@ class printNetwork():
         print("")
         stop = False
         for vertexNum,vertexName in enumerate(vertices):
-            vertexData = self.dn.getVertexByName(vertexName, 'feat')                        
+            vertexData = self.dn.getVertexByName(vertexName, 'feat')
             internal   = vertexData["Internal"]
-            network    = vertexData["Network"]
+            census     = vertexData["Census"]
+            network    = vertexData["NetworkRank"]
+            geospatial = vertexData["GeoSpatial"]
             
             if internal['N'] < minN:
                 continue
                 
-            widths = iter(header.values())
+            #widths = iter(header.values())
             
-            ## #
-            print('{cmt: <{width}}'.format(cmt=vertexNum, width=next(widths)), end="")            
-            
-            ## Cl
-            print('{cmt: <{width}}'.format(cmt=vertexName, width=next(widths)), end="")
-            
-            
-            n = internal['N']
-            if n < minN:
-                stop = True
-            ## Active
-            print('{cmt: <{width}}'.format(cmt=n, width=next(widths)), end="")    
-            
-            if internal['IsHome'] == 1:
-                home = "***"
-            else:
-                home = ""
-            ## Home
-            print('{cmt: <{width}}'.format(cmt=home, width=next(widths)), end="")
-            
-            
-            active = internal['FractionalVisits']
-            ## Active
-            print('{cmt: <{width}}'.format(cmt=active, width=next(widths)), end="")    
-            
-            
-            dow = internal['DayOfWeek']
-            ## Day
-            print('{cmt: <{width}}'.format(cmt=dow, width=next(widths)), end="")     
-            
-            
-            dwell = internal['DwellTime']
-            ## Dwell
-            print('{cmt: <{width}}'.format(cmt=dwell, width=next(widths)), end="")    
-                
-                
-            try:
-                place=str(vertexData["Census"]["Place"])
-            except:
-                place=""
-            ## CBSA
-            print('{cmt: <{width}}'.format(cmt=place, width=next(widths)), end="") 
-                
-                
-            try:
-                state=str(vertexData["Census"]["State"])
-            except:
-                state=""
-            ## CBSA
-            print('{cmt: <{width}}'.format(cmt=state, width=next(widths)), end="")
+            for name,width in header.items():
+                if name == "#":
+                    ## #
+                    print('{cmt: <{width}}'.format(cmt=vertexNum, width=width), end="")
 
+                if name == "Cl":
+                    ## Cl
+                    print('{cmt: <{width}}'.format(cmt=vertexName, width=width), end="")
             
+                if name == "N":
+                    ## N
+                    n = internal['N']
+                    print('{cmt: <{width}}'.format(cmt=n, width=width), end="")    
+
+                if name == "Home":
+                    if internal['IsHome'] == 1:
+                        home = "***"
+                    else:
+                        home = ""
+                    ## Home
+                    print('{cmt: <{width}}'.format(cmt=home, width=width), end="")
+
+                if name == "Active":            
+                    ## Active
+                    active = internal['FractionalVisits']
+                    print('{cmt: <{width}}'.format(cmt=active, width=width), end="")    
+                
+                if name == "DayWeek":            
+                    ## Day
+                    dow = internal['DayOfWeek']
+                    print('{cmt: <{width}}'.format(cmt=dow, width=width), end="")     
             
-            nocliques = round(network["NumberOfCliques"],3)
-            print('{cmt: <{width}}'.format(cmt=nocliques, width=next(widths)), end="")
+                if name == "Dwell":
+                    ## Dwell
+                    dwell = internal['DwellTime']
+                    print('{cmt: <{width}}'.format(cmt=dwell, width=width), end="")    
+                
+                if name == "Place":
+                    ## Place
+                    try:
+                        place=str(census["Place"])[:width-2]
+                    except:
+                        place="N/A"
+                    try:
+                        state=str(census["State"])[:width-2]
+                    except:
+                        state="N/A"
+                    place = ", ".join([place, state])
+                    print('{cmt: <{width}}'.format(cmt=place, width=width), end="") 
+
+                if name == "Cliques":
+                    nocliques = round(network["NumberOfCliques"],3)
+                    print('{cmt: <{width}}'.format(cmt=nocliques, width=width), end="")
+
+                if name == "Cluster":
+                    clustering = round(network["Clustering"],3)
+                    print('{cmt: <{width}}'.format(cmt=clustering, width=width), end="")
+
+                if name == "Degree":
+                    degree = round(network["AverageNeighborDegree"],2)
+                    print('{cmt: <{width}}'.format(cmt=degree, width=width), end="")
+
+                if name == "Centrality":
+                    degree = round(network["EigenvectorCentrality"],2)
+                    print('{cmt: <{width}}'.format(cmt=degree, width=width), end="")
+                    
+                if name == "DCentral":
+                    degree = round(network["DegreeCentrality"],3)
+                    print('{cmt: <{width}}'.format(cmt=degree, width=width), end="")
+
+                if name == "ECentral":
+                    degree = round(network["EigenvectorCentrality"],3)
+                    print('{cmt: <{width}}'.format(cmt=degree, width=width), end="")
+                        
+                if name == "ShortPath":
+                    degree = round(network["ShortestPath"],3)
+                    print('{cmt: <{width}}'.format(cmt=degree, width=width), end="")
+                        
+                if name == "Spectral":
+                    degree = round(network["SpectralOrdering"],3)
+                    print('{cmt: <{width}}'.format(cmt=degree, width=width), end="")
+                    
+                if name == "PageRank":
+                    degree = network["Pagerank"]
+                    print('{cmt: <{width}}'.format(cmt=degree, width=width), end="")
             
-            clustering = round(network["Clustering"],3)
-            print('{cmt: <{width}}'.format(cmt=clustering, width=next(widths)), end="")
-            
-            degree = round(network["AverageNeighborDegree"],2)
-            print('{cmt: <{width}}'.format(cmt=degree, width=next(widths)), end="")
-            
-            degree = round(network["DegreeCentrality"],3)
-            print('{cmt: <{width}}'.format(cmt=degree, width=next(widths)), end="")
-            
-            degree = round(network["EigenvectorCentrality"],3)
-            print('{cmt: <{width}}'.format(cmt=degree, width=next(widths)), end="")
-            
-            degree = round(network["ShortestPath"],3)
-            print('{cmt: <{width}}'.format(cmt=degree, width=next(widths)), end="")
-            
-            degree = round(network["Pagerank"],3)
-            print('{cmt: <{width}}'.format(cmt=degree, width=next(widths)), end="")
-            
-        
+                if name == "POIs":
+                    pois   = ", ".join([k for k,v in geospatial.items() if v > 0])
+                    print('{cmt: <{width}}'.format(cmt=pois, width=width), end="")
+
         
             print("") 
-            #print("Center")
-            #print(vertexData)
-            #break
-            
-            
-        
+
+            """
+            HomeNetworkAverageNeighborDegree	3.75
+            HomeNetworkDegreeCentrality	0.0106
+            HomeNetworkEigenvectorCentrality	3.96e-10
+            HomeNetworkEigenvectorCentralityNumpy	3.96e-10
+            HomeNetworkKatzCentralityNumpy	0.0278
+            HomeNetworkClosenessCentrality	0.123
+            HomeNetworkCurrentFlowClosenessCentrality	0.000599
+            HomeNetworkBetweennessCentrality	0.00265
+            HomeNetworkCurrentFlowBetweennessCentrality	0.0226
+            HomeNetworkApproximateCurrentFlowBetweennessCentrality	3.02e-17
+            HomeNetworkCommunicabilityBetweennessCentrality	0.00299
+            HomeNetworkNewmanBetweennessCentrality	0.00265
+            HomeNetworkSubgraphCentrality	6.12
+            HomeNetworkSubgraphCentralityExp	6.12
+            HomeNetworkHarmonicCentrality	51.1
+            HomeNetworkNodeCliqueNumber	2
+            HomeNetworkNumberOfCliques	2
+            HomeNetworkTriangles	0
+            HomeNetworkClustering	0
+            HomeNetworkSquareClustering	0.125
+            HomeNetworkCenter	0
+            HomeNetworkEccentricity	13
+            HomeNetworkPeriphery	0
+            HomeNetworkDominatingSet	0
+            HomeNetworkPagerank	0.00289
+            HomeNetworkMaximalMatching	12
+            HomeNetworkMaxWeightMatching	19
+            HomeNetworkMaximalIndependentSet	0
+            HomeNetworkShortestPath	9.12
+            HomeNetworkSpectralOrdering	373            
+            """
         
     #################################################################################################################
     # Print/Show Network
@@ -150,7 +196,7 @@ class printNetwork():
         edges = self.dn.getEdges()
         print("\n\n======================================== {0} Edges (min {1}) ========================================\n".format(len(edges), minW))
         from collections import OrderedDict
-        header = OrderedDict({"#": 4, "ID": 18, "N": 5, "Active": 7, "DayWeek": 8, "Distance": 9, "Place": 20}) #, "State": 20, "Cliques": 8, "Cluster": 8, "Degree": 8, "DCentral": 9, "ECentral": 9, "ShortPath": 10, "PageRank": 8})
+        header = OrderedDict({"#": 4, "ID": 18, "N": 5, "Active": 10, "DayWeek": 10, "Distance": 10, "Place": 20}) #, "State": 20, "Cliques": 8, "Cluster": 8, "Degree": 8, "DCentral": 9, "ECentral": 9, "ShortPath": 10, "PageRank": 8})
         for k,v in header.items():
             print('{cmt: <{width}}'.format(cmt=k, width=v), end="")
         print("")
@@ -160,49 +206,49 @@ class printNetwork():
         for edgeNum,edgeName in enumerate(edges):
             edgeData = self.dn.getEdgeByName(edgeName, 'feat')
             internal = edgeData["Internal"]
+            census   = edgeData["Census"]
             network  = edgeData["Network"]
             
             if network['EdgeWeight'] < minW:
                 continue
             
-            widths = iter(header.values())
             
-            ## #
-            print('{cmt: <{width}}'.format(cmt=edgeNum, width=next(widths)), end="")            
-            
-            ## Cl
-            ID = str(edgeName)
-            print('{cmt: <{width}}'.format(cmt=ID, width=next(widths)), end="")
+            for name,width in header.items():
+                if name == "#":
+                    ## #
+                    print('{cmt: <{width}}'.format(cmt=edgeNum, width=width), end="")
+                    
+                if name == "ID":
+                    ## Cl
+                    ID = str(edgeName)
+                    print('{cmt: <{width}}'.format(cmt=ID, width=width), end="")
 
+                if name == "N":
+                    ## Active
+                    n = int(network['EdgeWeight'])
+                    print('{cmt: <{width}}'.format(cmt=n, width=width), end="")    
             
+                if name == "Active":
+                    ## Active
+                    active = internal['FractionalActive']
+                    print('{cmt: <{width}}'.format(cmt=active, width=width), end="")    
             
-            n = int(network['EdgeWeight'])
-            ## Active
-            print('{cmt: <{width}}'.format(cmt=n, width=next(widths)), end="")    
+                if name == "DayWeek":
+                    ## Day
+                    dow = internal['DayOfWeek']
+                    print('{cmt: <{width}}'.format(cmt=dow, width=width), end="")     
             
-            
-            
-            
-            active = internal['FractionalActive']
-            ## Active
-            print('{cmt: <{width}}'.format(cmt=active, width=next(widths)), end="")    
-            
-            
-            dow = internal['DayOfWeek']
-            ## Day
-            print('{cmt: <{width}}'.format(cmt=dow, width=next(widths)), end="")     
-            
-            
-            dist = internal['DrivingDistance']
-            ## dist
-            print('{cmt: <{width}}'.format(cmt=dist, width=next(widths)), end="")    
-                
-            try:
-                place=str(edgeData["Census"]["Place"])
-            except:
-                place=""
-            ## CBSA
-            print('{cmt: <{width}}'.format(cmt=place, width=next(widths)), end="") 
+                if name == "Distance":
+                    ## dist
+                    dist = internal['DrivingDistance']
+                    print('{cmt: <{width}}'.format(cmt=dist, width=width), end="")    
+
+                if name == "Place":
+                    try:
+                        place=str(census["Place"])
+                    except:
+                        place=""
+                    print('{cmt: <{width}}'.format(cmt=place, width=width), end="") 
                 
             print("")
             

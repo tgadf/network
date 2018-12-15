@@ -240,7 +240,8 @@ def organizeTrips(df, gc, prec=7, requireGood=True, debug=False, showTrips=False
 
             ## Fill external data
             for extKey,extVal in extData.items():
-                vtxMetrics[geoID][extKey] = {}
+                if vtxMetrics[geoID].get(extKey) is None:
+                    vtxMetrics[geoID][extKey] = {}
                 for key, value in extVal.items():
                     if vtxMetrics[geoID][extKey].get(key) is None:
                         vtxMetrics[geoID][extKey][key] = Counter()

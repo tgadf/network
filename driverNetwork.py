@@ -4,6 +4,7 @@ from networkAlgos import networkAlgos
 from networkCategories import categories
 from collections import OrderedDict
 from pandasUtils import getRowData, getColData, dropColumns, fixType, isDataFrame
+from numpyUtils import isNumeric
 
 from place import getPlaceData
 from cbsa import getCBSAData
@@ -25,8 +26,12 @@ class driverNetwork(network):
         self.getHomeRatioCategory = self.categories.getHomeRatioCategory
         self.getIntervalCategory = self.categories.getIntervalCategory
         
+        self.vertexGeoSpatialGroups = ["HEREPOI", "OSM", "AGS", "Roads", "Rail", "Terminals"]        
+        
         self.nodeAttrs = None
+        self.nodeRanks = None
         self.edgeAttrs = None
+        self.edgeRanks = None
         self.netAttrs  = None
         
         self.gc = None
@@ -87,6 +92,9 @@ class driverNetwork(network):
     ################################################################################################    
     def getNodeAttrs(self):
         return self.nodeAttrs
+         
+    def getNodeRanks(self):
+        return self.nodeRanks
         
     def getNodeDict(self):
         return self.vInfo.nodeDict
@@ -126,6 +134,7 @@ class driverNetwork(network):
         self.netAlgos = networkAlgos()
         results = self.netAlgos.compute(self.g, level=level, debug=debug)
         self.nodeAttrs = results['Nodes']
+        self.nodeRanks = results['NodeRanks']
         self.edgeAttrs = results['Edges']
         self.edgeAttrs['edge_weight'] = self.eInfo.getEdgeWeights().values() # add weights
         self.netAttrs  = results['Net']
@@ -157,7 +166,11 @@ class driverNetwork(network):
                 value   = vertex[key]
                 
                 
-                if isinstance(value, list):
+                if isinstance(value, (int,float)):
+                    if value != 0:
+                        raise ValueError("Unsure what this value {0} for {1} means in the census data!!".format(value,key))
+                    value = None
+                elif isinstance(value, list):
                     try:
                         #mc    = value.most_common(1)
                         value = value[0][0]
@@ -165,7 +178,7 @@ class driverNetwork(network):
                         print("There was an error getting most common {0}".format(key))
                         value = None        
                 else:
-                    print("Input {0} is type {1}".format(value, type(value)))
+                    raise ValueError("Input {0} is type {1} in dn.fillVertexCensusData()".format(value, type(value)))
                     
                 try:
                     lookup       = getCensusData[key](str(value))
@@ -201,8 +214,8 @@ class driverNetwork(network):
         if debug:
             print("Filling Vertex Geospatial Data")
         verydebug=False
-        
-        groupings = ["HEREPOI", "OSM", "Roads", "Rail", "Terminals"]
+
+        groupings = self.vertexGeoSpatialGroups
         for grouping in groupings:
             keys = [k for k,v in self.getVertexAttrsGroups().items() if v == grouping]            
             for vertexName in self.getVertices():
@@ -214,7 +227,12 @@ class driverNetwork(network):
                     value   = vertex[key]
 
                     result = None
-                    if isinstance(value, list):
+                    if isNumeric(value):
+                        if value > 0:
+                            result = 1
+                        else:
+                            result = 0
+                    elif isinstance(value, list):  ## Older way to access geospatial data
                         try:
                             test = value[0][0]
                             if test is None:
@@ -227,7 +245,7 @@ class driverNetwork(network):
                         except:
                             result = 0 #'N'
                     else:
-                        print("Input {0} is type {1}".format(value, type(value)))
+                        raise ValueError("Input {0} is type {1} in dn.fillVertexGeospatialData()".format(value, type(value)))
 
                     self.setVertexFeature(vertexName=vertexName, category="GeoSpatial", key=key, value=result)
                     if verydebug is True:
@@ -280,6 +298,12 @@ class driverNetwork(network):
             if debug:
                 print("There is no vertex network DataFrame!")
             return
+
+        vertexNetworkRankDF = self.getVertexNetworkRankDataFrame()
+        if not isDataFrame(vertexNetworkDF):
+            if debug:
+                print("There is no vertex network DataFrame!")
+            return
         
         for vertexName in self.getVertices():
             vertexData = getRowData(vertexNetworkDF, rownames=vertexName)
@@ -290,6 +314,16 @@ class driverNetwork(network):
                 value = vertexData[key]
                 featureName = ''.join([s.title() for s in key.split("_")])
                 self.setVertexFeature(vertexName=vertexName, category="Network", key=featureName, value=value)
+                
+                
+            vertexRankData = getRowData(vertexNetworkRankDF, rownames=vertexName)
+            if verydebug:
+                print("  --> Vertex Name {0}".format(vertexName))
+
+            for key in vertexRankData.index:
+                value = vertexRankData[key]
+                featureName = ''.join([s.title() for s in key.split("_")])
+                self.setVertexFeature(vertexName=vertexName, category="NetworkRank", key=featureName, value=value)
                     
         if verydebug:
             raise ValueError("Stoppping after verydebug is True")                      
@@ -394,6 +428,9 @@ class driverNetwork(network):
 
     def getVertexNetworkDataFrame(self, debug=False):
         return self.nodeAttrs
+
+    def getVertexNetworkRankDataFrame(self, debug=False):
+        return self.nodeRanks
 
     def getEdgeInternalDataFrame(self, debug=False):
         return self.eInfo.edgeAttrsDF

@@ -159,7 +159,12 @@ class vertexInfo():
                     self.vertexAttrs[attrName].append(attrData)
                 elif isinstance(attrData, dict):
                     if isinstance(attrData, Counter):
-                        self.vertexAttrs[attrName].append(attrData.most_common())
+                        if attrData.get(1.0):
+                            self.vertexAttrs[attrName].append(1)
+                        elif attrData.get(0.0):
+                            self.vertexAttrs[attrName].append(0)
+                        else:
+                            self.vertexAttrs[attrName].append(attrData.most_common())
                     else:
                         if attrData.get('Avg') is not None:
                             self.vertexAttrs[attrName].append(attrData['Avg'])
