@@ -3,7 +3,8 @@ import setuptools
 
 setup(
   name = 'network',
-  py_modules = ['network', 'networkTimeUtils', 'networkTrips', 'networkTripUtils', 'networkCategories'],
+  py_modules = ['network', 'networkTimeUtils', 'networkTrips', 'networkTripUtils', 'networkCategories', 'driverNetwork',
+               'networkAlgos', 'edgeInfo', 'vertexInfo'],
   version = '0.0.1',
   description = 'A Python Wrapper For Network Tool',
   long_description = open('README.md').read(),
